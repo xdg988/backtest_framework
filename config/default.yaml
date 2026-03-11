@@ -1,5 +1,5 @@
 data:
-  token: "xx"  # Replace with your actual token
+  token: "cf906b3b49a5f7df15a456bf24e09ebe3e575c0b16728c2331f544a8"  # Replace with your actual token
   cache_dir: "./data_cache"
   cache_expiry_days: 7
 

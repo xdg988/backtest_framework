@@ -1,0 +1,31 @@
+Starting Portfolio Value: 100000.00
+2021-04-30, BUY EXECUTED, Price: 23.35, Size: 423
+2021-06-21, RISK EXIT: Current price 22.16, Entry price 23.59
+2021-06-22, SELL EXECUTED, Price: 22.38, Size: -423
+2021-10-13, BUY EXECUTED, Price: 19.30, Size: 514
+2021-10-19, SELL EXECUTED, Price: 19.15, Size: -514
+2021-10-29, BUY EXECUTED, Price: 19.63, Size: 504
+2021-11-02, RISK EXIT: Current price 18.18, Entry price 19.72
+2021-11-03, SELL EXECUTED, Price: 18.10, Size: -504
+2022-04-21, BUY EXECUTED, Price: 15.77, Size: 622
+2022-04-25, RISK EXIT: Current price 14.85, Entry price 15.85
+2022-04-26, SELL EXECUTED, Price: 14.88, Size: -622
+2022-07-13, BUY EXECUTED, Price: 14.42, Size: 680
+2022-07-14, RISK EXIT: Current price 13.37, Entry price 14.42
+2022-07-15, SELL EXECUTED, Price: 13.48, Size: -680
+2022-09-29, BUY EXECUTED, Price: 12.25, Size: 805
+2022-09-30, SELL EXECUTED, Price: 11.87, Size: -805
+2022-12-01, BUY EXECUTED, Price: 13.38, Size: 746
+2023-01-05, RISK EXIT: Current price 14.48, Entry price 13.03
+2023-01-06, SELL EXECUTED, Price: 14.50, Size: -746
+2023-08-07, BUY EXECUTED, Price: 12.21, Size: 797
+2023-08-14, RISK EXIT: Current price 11.67, Entry price 12.30
+2023-08-15, SELL EXECUTED, Price: 11.69, Size: -797
+Final Portfolio Value: 97663.87
+Comprehensive report generated: ./results/backtest_report.html
+Backtest completed successfully
+Final portfolio value: 97663.87
+Performance metrics:
+annual_return: -0.0079
+sharpe: -0.7028
+max_drawdown: -0.0389

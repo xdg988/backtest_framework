@@ -1,7 +1,8 @@
 #!/bin/bash
+set -e
 
 # Run backtest script with default parameters
-# Output will be redirected to logs file
+# Output will be redirected to results/backtest.log
 
 cd /home/ecs-user/code/backtest_framework
 
@@ -13,9 +14,12 @@ conda activate quant
 pip install -r requirements.txt
 
 # Set token environment variable
-export TUSHARE_TOKEN="xx"
+export TUSHARE_TOKEN="cf906b3b49a5f7df15a456bf24e09ebe3e575c0b16728c2331f544a8"
+
+# Ensure results directory exists
+mkdir -p results
 
 # Run the backtest with example parameters
-python run_backtest.py --strategy SMACrossover --enable_charts
+python run_backtest.py --strategy SMACrossover --enable_charts > results/backtest.log 2>&1
 
-echo "Backtest completed. Check logs file and results/ directory for output and report."
+echo "Backtest completed. Check results/backtest.log and results/ directory for output and report."

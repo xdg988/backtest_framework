@@ -12,7 +12,7 @@ class Config:
 
     def __init__(self, config_file: str = None):
         if config_file is None:
-            config_file = os.path.join(os.path.dirname(__file__), 'config', 'default.yaml')
+            config_file = os.path.join(os.path.dirname(__file__), 'default.yaml')
         self.config_file = config_file
         self._config = self._load_config()
 

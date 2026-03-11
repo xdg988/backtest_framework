@@ -5,13 +5,12 @@ import pandas as pd
 import backtrader as bt
 import argparse
 
-from data_loader import fetch_daily
-from backtest import run
+from data_loader.data_loader import fetch_daily
 from backtest.strategy import BacktestStrategy
 from strategies import SMACrossover, RSIStrategy, MACDStrategy, KDJStrategy, BollingerStrategy, MultiFactorStrategy
-from position_manager import PercentRisk, FixedSize, RiskManager
-from performance import compute_performance
-from config import config
+from backtest.position_manager import PercentRisk, FixedSize, RiskManager
+from backtest.performance import compute_performance
+from config.config import config
 from reporting import BacktestVisualizer, PerformanceMetrics, ReportGenerator
 
 

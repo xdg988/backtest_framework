@@ -9,7 +9,7 @@ from typing import Dict, Any, List, Optional
 from datetime import datetime
 
 from .visualizer import BacktestVisualizer
-from performance import PerformanceMetrics
+from backtest.performance import PerformanceMetrics
 
 
 class ReportGenerator:

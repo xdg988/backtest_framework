@@ -22,6 +22,7 @@ class BacktestStrategy(bt.Strategy):
         self.order = None
         self.signal = None
         self.entry_price = None  # track entry price for risk management
+        self.trades = []  # executed trades for reporting
         # history of daily metrics
         self.records = []  # will hold dicts with date, cash, value, position
 
@@ -75,8 +76,20 @@ class BacktestStrategy(bt.Strategy):
         if order.status in [order.Completed]:
             if order.isbuy():
                 self.log(f'BUY EXECUTED, Price: {order.executed.price:.2f}, Size: {order.executed.size}')
+                self.trades.append({
+                    'date': self.datas[0].datetime.date(0).isoformat(),
+                    'action': 'BUY',
+                    'price': float(order.executed.price),
+                    'size': int(abs(order.executed.size)),
+                })
             elif order.issell():
                 self.log(f'SELL EXECUTED, Price: {order.executed.price:.2f}, Size: {order.executed.size}')
+                self.trades.append({
+                    'date': self.datas[0].datetime.date(0).isoformat(),
+                    'action': 'SELL',
+                    'price': float(order.executed.price),
+                    'size': int(abs(order.executed.size)),
+                })
         elif order.status in [order.Canceled, order.Margin, order.Rejected]:
             self.log('Order Canceled/Margin/Rejected')
 
