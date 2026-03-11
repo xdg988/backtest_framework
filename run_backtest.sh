@@ -14,7 +14,7 @@ conda activate quant
 pip install -r requirements.txt
 
 # Set token environment variable
-export TUSHARE_TOKEN="cf906b3b49a5f7df15a456bf24e09ebe3e575c0b16728c2331f544a8"
+export TUSHARE_TOKEN="xx"
 
 # Ensure results directory exists
 mkdir -p results
