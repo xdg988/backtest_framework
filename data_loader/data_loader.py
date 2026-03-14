@@ -3,6 +3,7 @@
 import os
 import pandas as pd
 import tushare as ts
+from typing import Dict, List
 
 
 def get_pro_api(token: str = None):
@@ -13,6 +14,34 @@ def get_pro_api(token: str = None):
             raise ValueError("Tushare token must be provided via argument or TUSHARE_TOKEN env var")
     ts.set_token(token)
     return ts.pro_api()
+
+
+def normalize_ts_code(ts_code: str) -> str:
+    """Convert common JoinQuant suffix to tushare suffix if needed."""
+    code = ts_code.strip()
+    if code.endswith('.XSHG'):
+        return code.replace('.XSHG', '.SH')
+    if code.endswith('.XSHE'):
+        return code.replace('.XSHE', '.SZ')
+    return code
+
+
+def _standardize_daily_df(df: pd.DataFrame, ts_code: str) -> pd.DataFrame:
+    if df.empty:
+        raise ValueError(f"No data returned for {ts_code}")
+
+    df['trade_date'] = pd.to_datetime(df['trade_date'], format='%Y%m%d')
+    df = df.sort_values('trade_date').set_index('trade_date')
+    df = df.rename(columns={
+        'vol': 'volume',
+        'amount': 'amount',
+    })
+
+    needed_cols = ['open', 'high', 'low', 'close', 'volume']
+    for col in needed_cols:
+        if col not in df.columns:
+            df[col] = 0.0
+    return df
 
 
 def fetch_daily(ts_code: str, start_date: str, end_date: str, token: str = None) -> pd.DataFrame:
@@ -34,20 +63,42 @@ def fetch_daily(ts_code: str, start_date: str, end_date: str, token: str = None)
     pd.DataFrame
         DataFrame indexed by date with columns ['open','high','low','close','vol','amount'].
     """
+    code = normalize_ts_code(ts_code)
     pro = get_pro_api(token)
-    df = pro.daily(ts_code=ts_code, start_date=start_date, end_date=end_date)
+
+    # ETF/fund first, then fallback to stock daily.
+    df = pro.fund_daily(ts_code=code, start_date=start_date, end_date=end_date)
     if df.empty:
-        raise ValueError(f"No data returned for {ts_code} {start_date}-{end_date}")
-    # convert date to datetime and sort
-    df['trade_date'] = pd.to_datetime(df['trade_date'], format='%Y%m%d')
-    df = df.sort_values('trade_date').set_index('trade_date')
-    # rename columns to lower case
-    df = df.rename(columns={
-        'open': 'open',
-        'high': 'high',
-        'low': 'low',
-        'close': 'close',
-        'vol': 'volume',
-        'amount': 'amount'
-    })
-    return df
+        df = pro.daily(ts_code=code, start_date=start_date, end_date=end_date)
+    if df.empty:
+        raise ValueError(f"No data returned for {code} {start_date}-{end_date}")
+
+    return _standardize_daily_df(df, code)
+
+
+def fetch_daily_multiple(ts_codes: List[str], start_date: str, end_date: str, token: str = None) -> Dict[str, pd.DataFrame]:
+    """Fetch daily bars for multiple symbols.
+
+    Returns a mapping of normalized tushare code -> standardized OHLCV DataFrame.
+    """
+    if not ts_codes:
+        raise ValueError("ts_codes cannot be empty")
+
+    pro = get_pro_api(token)
+    data_map: Dict[str, pd.DataFrame] = {}
+
+    for raw_code in ts_codes:
+        code = normalize_ts_code(raw_code)
+
+        df = pro.fund_daily(ts_code=code, start_date=start_date, end_date=end_date)
+        if df.empty:
+            df = pro.daily(ts_code=code, start_date=start_date, end_date=end_date)
+        if df.empty:
+            continue
+
+        data_map[code] = _standardize_daily_df(df, code)
+
+    if not data_map:
+        raise ValueError(f"No data returned for any symbol in pool ({len(ts_codes)} symbols)")
+
+    return data_map

@@ -5,31 +5,29 @@ import pandas as pd
 import backtrader as bt
 import argparse
 
-from data_loader.data_loader import fetch_daily
-from backtest.strategy import BacktestStrategy
-from strategies import SMACrossover, RSIStrategy, MACDStrategy, KDJStrategy, BollingerStrategy, MultiFactorStrategy
-from backtest.position_manager import PercentRisk, FixedSize, RiskManager
+from data_loader.data_loader import fetch_daily_multiple, normalize_ts_code
+from backtest.rotation_strategy import RotationBacktestStrategy
+from strategies import (
+    ETFLinearMomentumRotation,
+    ETFTrendCorrRotation,
+)
 from backtest.performance import compute_performance
 from config.config import Config
-from reporting import BacktestVisualizer, PerformanceMetrics, ReportGenerator
+from reporting import ReportGenerator
 
 
-def run(ts_code: str,
-        start: str,
+def run(start: str,
         end: str,
         cash: float = 100000,
         token: str = None,
         strategy_class=None,
         signal_kwargs: dict = None,
-        position_mgr=None,
-        risk_mgr=None,
-        enable_charts: bool = True) -> tuple:
+        enable_charts: bool = True,
+        output_dir: str = './results') -> tuple:
     """Run a backtest and return a record DataFrame.
 
     Parameters
     ----------
-    ts_code : str
-        tushare code to fetch, e.g. '000001.SZ'.
     start : str
         start date YYYYMMDD
     end : str
@@ -42,33 +40,31 @@ def run(ts_code: str,
         Strategy class from strategies module, e.g. SMACrossover. Required.
     signal_kwargs : dict
         Arguments for the strategy class.
-    position_mgr : object
-        Instance of FixedSize or PercentRisk.
-    risk_mgr : object
-        Instance of RiskManager for risk controls.
+    strategy_class : class
+        Must be a multi-asset rotation strategy class from strategies module.
     """
-    try:
-        df = fetch_daily(ts_code, start, end, token)
-    except Exception as e:
-        print(f"Error fetching data: {e}")
-        print("Cannot proceed with backtest without data.")
-        return None, []
-
-    # backtrader expects a column called "open","high","low","close","volume"
-    datafeed = bt.feeds.PandasData(dataname=df)
+    if strategy_class is None or not getattr(strategy_class, 'multi_asset', False):
+        raise ValueError('This framework now supports multi-asset rotation strategies only.')
 
     cerebro = bt.Cerebro()
     cerebro.broker.setcash(cash)
-    cerebro.adddata(datafeed)
+    signal_kwargs = signal_kwargs or {}
+    siggen = strategy_class(**signal_kwargs)
+    pool_codes = [normalize_ts_code(code) for code in siggen.etf_pool]
+    siggen.etf_pool = pool_codes
+    try:
+        data_map = fetch_daily_multiple(pool_codes, start, end, token)
+    except Exception as e:
+        print(f"Error fetching multi-asset data: {e}")
+        print("Cannot proceed with backtest without data.")
+        return None, []
 
-    siggen = strategy_class(**(signal_kwargs or {}))
-    if position_mgr is None:
-        position_mgr = FixedSize(size=100)  # default
+    for code, df_item in data_map.items():
+        datafeed = bt.feeds.PandasData(dataname=df_item)
+        cerebro.adddata(datafeed, name=code)
 
-    cerebro.addstrategy(BacktestStrategy,
-                        signal_generator=siggen,
-                        position_manager=position_mgr,
-                        risk_manager=risk_mgr)
+    cerebro.addstrategy(RotationBacktestStrategy, signal_generator=siggen)
+    report_data = next(iter(data_map.values()))
 
     print(f"Starting Portfolio Value: {cerebro.broker.getvalue():.2f}")
     strat_list = cerebro.run()
@@ -80,6 +76,8 @@ def run(ts_code: str,
 
     # Generate visualizations and report if enabled
     if enable_charts:
+        report_signals = pd.Series(0, index=report_data.index)
+
         # Create comprehensive report
         report_gen = ReportGenerator()
         report_path = report_gen.generate_report(
@@ -88,9 +86,9 @@ def run(ts_code: str,
             end_date=end,
             records=rec,
             trades=strat.trades,
-            data=df,
-            signals=siggen.generate(df),
-            output_dir=config.get('visualization.output_dir', './results'),
+            data=report_data,
+            signals=report_signals,
+            output_dir=output_dir,
             initial_cash=cash
         )
 
@@ -107,27 +105,21 @@ if __name__ == '__main__':
 
     config = Config(args.config)
 
-    ts_code = config.get('backtest.default_ts_code', '000001.SZ')
     start = config.get('backtest.default_start')
     end = config.get('backtest.default_end')
     cash = config.get('backtest.default_cash', 100000)
     token = config.get('data.token')
-    position_type = config.get('position.default_type', 'percent')
-    position_value = config.get('position.default_value', 0.1)
     enable_charts = config.get('visualization.enable_charts', True)
-    strategy_name = config.get('backtest.default_strategy', 'SMACrossover')
+    output_dir = config.get('visualization.output_dir', './results')
+    strategy_name = config.get('backtest.default_strategy', 'ETFLinearMomentumRotation')
 
     if not token:
         raise ValueError("Tushare token must be provided in config/default.yaml")
 
     # Map strategy name to class
     strategy_map = {
-        'SMACrossover': SMACrossover,
-        'RSIStrategy': RSIStrategy,
-        'MACDStrategy': MACDStrategy,
-        'KDJStrategy': KDJStrategy,
-        'BollingerStrategy': BollingerStrategy,
-        'MultiFactorStrategy': MultiFactorStrategy,
+        'ETFLinearMomentumRotation': ETFLinearMomentumRotation,
+        'ETFTrendCorrRotation': ETFTrendCorrRotation,
     }
     if strategy_name not in strategy_map:
         raise ValueError(f"Unsupported strategy in config: {strategy_name}. Available: {list(strategy_map.keys())}")
@@ -136,31 +128,14 @@ if __name__ == '__main__':
 
     # Load strategy parameters from config
     strategy_config_key_map = {
-        'SMACrossover': 'sma',
-        'RSIStrategy': 'rsi',
-        'MACDStrategy': 'macd',
-        'KDJStrategy': 'kdj',
-        'BollingerStrategy': 'bollinger',
-        'MultiFactorStrategy': 'multi_factor',
+        'ETFLinearMomentumRotation': 'etf_linear_rotation',
+        'ETFTrendCorrRotation': 'etf_trend_corr_rotation',
     }
     strategy_key = strategy_config_key_map[strategy_name]
     signal_kwargs = config.get(f'strategies.{strategy_key}', {})
 
-    # Position manager
-    if position_type == 'fixed':
-        position_mgr = FixedSize(size=int(position_value))
-    else:
-        position_mgr = PercentRisk(percent=position_value)
-
-    # Risk manager
-    risk_mgr = RiskManager(
-        stop_loss_percent=config.get('risk.stop_loss_percent'),
-        take_profit_percent=config.get('risk.take_profit_percent'),
-        max_drawdown_percent=config.get('risk.max_drawdown_percent')
-    )
-
     # Run backtest
-    records, trades = run(ts_code, start, end, cash, token, strategy_class, signal_kwargs, position_mgr, risk_mgr, enable_charts)
+    records, trades = run(start, end, cash, token, strategy_class, signal_kwargs, enable_charts, output_dir)
 
     if records is None:
         print("Backtest failed due to data fetching error.")

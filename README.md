@@ -29,12 +29,9 @@ backtest_framework/
 │   └── report_generator.py
 ├── strategies/                   # 信号策略
 │   ├── __init__.py
-│   ├── sma_crossover.py
-│   ├── rsi_strategy.py
-│   ├── macd_strategy.py
-│   ├── kdj_strategy.py
-│   ├── bollinger_strategy.py
-│   └── multi_factor_strategy.py
+│   ├── etf_linear_momentum_rotation.py
+│   ├── etf_trend_corr_rotation.py
+│   └── legacy/                   # 旧单标策略归档
 └── results/                      # 结果输出目录
 ```
 
@@ -123,6 +120,7 @@ print(perf)
 
 1. 在 `strategies/` 下新增策略文件
 2. 实现 `generate(data)` 返回信号序列（`1/-1/0`）
+    - 多标的轮动策略可实现 `generate_targets(close_panel)` 返回每个交易日目标标的代码
 3. 在 `strategies/__init__.py` 导出策略类
 4. 在 `run_backtest.py` 的 `strategy_map` 注册策略
 
@@ -133,6 +131,7 @@ print(perf)
 ## 注意事项
 
 - 需配置有效 tushare token
+- 当前默认以多标的ETF轮动策略为主（单标策略已归档到 `strategies/legacy`）
 - 首次运行会下载数据，后续按缓存策略复用
 - 图表生成依赖 matplotlib
 
