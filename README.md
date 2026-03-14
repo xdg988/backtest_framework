@@ -20,7 +20,7 @@ backtest_framework/
 │   └── load_csv.py               # 本地 CSV 导入示例
 ├── backtest/                     # 回测核心模块
 │   ├── __init__.py
-│   ├── strategy.py               # Backtrader 执行策略
+│   ├── rotation_strategy.py      # Backtrader 多标的轮动执行策略
 │   ├── position_manager.py       # 仓位管理 + 风控
 │   └── performance.py            # 绩效指标计算
 ├── reporting/                    # 可视化与报告
@@ -30,8 +30,7 @@ backtest_framework/
 ├── strategies/                   # 信号策略
 │   ├── __init__.py
 │   ├── etf_linear_momentum_rotation.py
-│   ├── etf_trend_corr_rotation.py
-│   └── legacy/                   # 旧单标策略归档
+│   └── etf_trend_corr_rotation.py
 └── results/                      # 结果输出目录
 ```
 
@@ -73,29 +72,28 @@ python run_backtest.py --help
 
 - `data.token`：tushare token（统一从配置文件读取）
 - `backtest.default_strategy`：默认策略名称
-- `backtest.default_ts_code/default_start/default_end/default_cash`：回测基础参数
+- `backtest.default_start/default_end/default_cash`：回测基础参数
 - `strategies`：策略参数
-- `position`：仓位参数
-- `risk`：风控参数（止损/止盈/最大回撤）
 - `visualization`：图表输出路径及开关
 
 ## Python 调用示例
 
 ```python
 from run_backtest import run
-from strategies import RSIStrategy
-from backtest.position_manager import PercentRisk
+from strategies import ETFLinearMomentumRotation
 from backtest.performance import compute_performance
 
 records, trades = run(
-    ts_code='000001.SZ',
     start='20220101',
     end='20221231',
     cash=100000,
     token='your_tushare_token',
-    strategy_class=RSIStrategy,
-    signal_kwargs={'period': 14, 'overbought': 70, 'oversold': 30},
-    position_mgr=PercentRisk(percent=0.1),
+    strategy_class=ETFLinearMomentumRotation,
+    signal_kwargs={
+        'etf_pool': ['518880.XSHG', '513100.XSHG', '159915.XSHE', '510180.XSHG'],
+        'm_days': 25,
+        'top_n': 1,
+    },
     enable_charts=True,
 )
 
@@ -119,8 +117,7 @@ print(perf)
 ### 添加新策略
 
 1. 在 `strategies/` 下新增策略文件
-2. 实现 `generate(data)` 返回信号序列（`1/-1/0`）
-    - 多标的轮动策略可实现 `generate_targets(close_panel)` 返回每个交易日目标标的代码
+2. 实现 `generate_targets(close_panel)` 返回每个交易日目标标的代码
 3. 在 `strategies/__init__.py` 导出策略类
 4. 在 `run_backtest.py` 的 `strategy_map` 注册策略
 
@@ -131,7 +128,7 @@ print(perf)
 ## 注意事项
 
 - 需配置有效 tushare token
-- 当前默认以多标的ETF轮动策略为主（单标策略已归档到 `strategies/legacy`）
+- 当前仅保留多标的ETF轮动策略
 - 首次运行会下载数据，后续按缓存策略复用
 - 图表生成依赖 matplotlib
 

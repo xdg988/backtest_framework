@@ -39,7 +39,7 @@ def run(start: str,
     token : str
         tushare token (or will read TUSHARE_TOKEN env).
     strategy_class : class
-        Strategy class from strategies module, e.g. SMACrossover. Required.
+        Strategy class from strategies module, e.g. ETFLinearMomentumRotation. Required.
     signal_kwargs : dict
         Arguments for the strategy class.
     slippage_perc : float

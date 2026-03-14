@@ -14,31 +14,6 @@ backtest:
   benchmark_code: "000300.SH"  # HS300 benchmark
 
 strategies:
-  sma:
-    short_window: 10
-    long_window: 30
-  rsi:
-    period: 14
-    overbought: 70
-    oversold: 30
-  macd:
-    fast_period: 12
-    slow_period: 26
-    signal_period: 9
-  kdj:
-    period: 14
-    k_period: 3
-    d_period: 3
-  bollinger:
-    period: 20
-    std_dev: 2.0
-  multi_factor:
-    rsi_period: 14
-    rsi_overbought: 70
-    rsi_oversold: 30
-    macd_fast: 12
-    macd_slow: 26
-    macd_signal: 9
   etf_linear_rotation:
     etf_pool:
       - "518880.XSHG"
@@ -87,15 +62,6 @@ strategies:
     trend_long_ma: 30
     score_min: -0.5
     score_max: 4.5
-
-position:
-  default_type: "percent"
-  default_value: 0.1
-
-risk:
-  stop_loss_percent: 0.05  # 5% stop loss
-  take_profit_percent: 0.10  # 10% take profit
-  max_drawdown_percent: 0.20  # 20% max drawdown
 
 visualization:
   output_dir: "./results"
