@@ -13,13 +13,10 @@ conda activate quant
 # Install/update dependencies if needed
 pip install -r requirements.txt
 
-# Set token environment variable
-export TUSHARE_TOKEN="xx"
-
 # Ensure results directory exists
 mkdir -p results
 
-# Run the backtest with example parameters
-python run_backtest.py --strategy SMACrossover --enable_charts > results/backtest.log 2>&1
+# Run backtest with YAML configuration
+python run_backtest.py > results/backtest.log 2>&1
 
 echo "Backtest completed. Check results/backtest.log and results/ directory for output and report."

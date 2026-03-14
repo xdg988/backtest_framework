@@ -10,7 +10,7 @@ from backtest.strategy import BacktestStrategy
 from strategies import SMACrossover, RSIStrategy, MACDStrategy, KDJStrategy, BollingerStrategy, MultiFactorStrategy
 from backtest.position_manager import PercentRisk, FixedSize, RiskManager
 from backtest.performance import compute_performance
-from config.config import config
+from config.config import Config
 from reporting import BacktestVisualizer, PerformanceMetrics, ReportGenerator
 
 
@@ -100,32 +100,25 @@ def run(ts_code: str,
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Run backtest with specified strategy.')
-    parser.add_argument('--strategy', type=str, required=True, choices=['SMACrossover', 'RSIStrategy', 'MACDStrategy', 'KDJStrategy', 'BollingerStrategy', 'MultiFactorStrategy'],
-                        help='Strategy to use')
-    parser.add_argument('--ts_code', type=str, default='000001.SZ', help='Tushare stock code')
-    parser.add_argument('--start', type=str, default='20210101', help='Start date YYYYMMDD')
-    parser.add_argument('--end', type=str, default='20231231', help='End date YYYYMMDD')
-    parser.add_argument('--cash', type=float, default=100000, help='Starting cash')
-    parser.add_argument('--token', type=str, default=None, help='Tushare token')
-    parser.add_argument('--position_type', type=str, choices=['fixed', 'percent'], default='percent', help='Position manager type')
-    parser.add_argument('--position_value', type=float, default=0.1, help='Position value (size for fixed, percent for percent)')
-    parser.add_argument('--enable_charts', action='store_true', help='Enable chart generation')
+    parser = argparse.ArgumentParser(description='Run backtest using YAML configuration.')
+    parser.add_argument('--config', type=str, default=os.path.join('config', 'default.yaml'), help='Path to config yaml file')
 
     args = parser.parse_args()
 
-    # Load from config if not provided
-    ts_code = args.ts_code or config.get('backtest.default_ts_code', '000001.SZ')
-    start = args.start or config.get('backtest.default_start')
-    end = args.end or config.get('backtest.default_end')
-    cash = args.cash or config.get('backtest.default_cash')
-    token = args.token or config.get('data.token') or os.environ.get('TUSHARE_TOKEN')
-    position_type = args.position_type or config.get('position.default_type')
-    position_value = args.position_value or config.get('position.default_value')
-    enable_charts = args.enable_charts or config.get('visualization.enable_charts', True)
+    config = Config(args.config)
+
+    ts_code = config.get('backtest.default_ts_code', '000001.SZ')
+    start = config.get('backtest.default_start')
+    end = config.get('backtest.default_end')
+    cash = config.get('backtest.default_cash', 100000)
+    token = config.get('data.token')
+    position_type = config.get('position.default_type', 'percent')
+    position_value = config.get('position.default_value', 0.1)
+    enable_charts = config.get('visualization.enable_charts', True)
+    strategy_name = config.get('backtest.default_strategy', 'SMACrossover')
 
     if not token:
-        raise ValueError("Tushare token must be provided via --token, config, or TUSHARE_TOKEN env var")
+        raise ValueError("Tushare token must be provided in config/default.yaml")
 
     # Map strategy name to class
     strategy_map = {
@@ -136,10 +129,21 @@ if __name__ == '__main__':
         'BollingerStrategy': BollingerStrategy,
         'MultiFactorStrategy': MultiFactorStrategy,
     }
-    strategy_class = strategy_map[args.strategy]
+    if strategy_name not in strategy_map:
+        raise ValueError(f"Unsupported strategy in config: {strategy_name}. Available: {list(strategy_map.keys())}")
+
+    strategy_class = strategy_map[strategy_name]
 
     # Load strategy parameters from config
-    strategy_key = args.strategy.lower()
+    strategy_config_key_map = {
+        'SMACrossover': 'sma',
+        'RSIStrategy': 'rsi',
+        'MACDStrategy': 'macd',
+        'KDJStrategy': 'kdj',
+        'BollingerStrategy': 'bollinger',
+        'MultiFactorStrategy': 'multi_factor',
+    }
+    strategy_key = strategy_config_key_map[strategy_name]
     signal_kwargs = config.get(f'strategies.{strategy_key}', {})
 
     # Position manager

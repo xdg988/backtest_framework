@@ -58,43 +58,25 @@ cd backtest_framework
 ### 方式2：命令行运行
 
 ```bash
-python run_backtest.py --strategy SMACrossover
+python run_backtest.py
 
-python run_backtest.py \
-  --strategy RSIStrategy \
-  --ts_code 000001.SZ \
-  --start 20220101 \
-  --end 20231231 \
-  --cash 100000 \
-  --position_type percent \
-  --position_value 0.1 \
-  --enable_charts
+# 指定配置文件（可选）
+python run_backtest.py --config config/default.yaml
 
 python run_backtest.py --help
 ```
 
 ## 命令行参数
 
-- `--strategy`：策略名称（必填）
-  - `SMACrossover`
-  - `RSIStrategy`
-  - `MACDStrategy`
-  - `KDJStrategy`
-  - `BollingerStrategy`
-  - `MultiFactorStrategy`
-- `--ts_code`：股票代码（默认 `000001.SZ`）
-- `--start`：开始日期，格式 `YYYYMMDD`
-- `--end`：结束日期，格式 `YYYYMMDD`
-- `--cash`：初始资金
-- `--token`：tushare token（也可用环境变量 `TUSHARE_TOKEN`）
-- `--position_type`：仓位类型（`fixed` / `percent`）
-- `--position_value`：仓位参数值
-- `--enable_charts`：启用图表与 HTML 报告
+- `--config`：配置文件路径（默认 `config/default.yaml`）
 
 ## 配置说明
 
 默认配置文件：`config/default.yaml`
 
+- `data.token`：tushare token（统一从配置文件读取）
+- `backtest.default_strategy`：默认策略名称
+- `backtest.default_ts_code/default_start/default_end/default_cash`：回测基础参数
 - `strategies`：策略参数
 - `position`：仓位参数
 - `risk`：风控参数（止损/止盈/最大回撤）
