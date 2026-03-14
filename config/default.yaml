@@ -8,8 +8,10 @@ backtest:
   default_ts_code: "000001.SZ"
   default_cash: 100000
   default_start: "20210101"
-  default_end: "20231231"
-  commission: 0.0003  # 0.03% commission
+  default_end: "20251231"
+  commission: 0.0005  # 0.03% commission
+  slippage_perc: 0.002  # 0.1% slippage
+  benchmark_code: "000300.SH"  # HS300 benchmark
 
 strategies:
   sma:

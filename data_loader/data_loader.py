@@ -3,7 +3,7 @@
 import os
 import pandas as pd
 import tushare as ts
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 
 def get_pro_api(token: str = None):
@@ -102,3 +102,48 @@ def fetch_daily_multiple(ts_codes: List[str], start_date: str, end_date: str, to
         raise ValueError(f"No data returned for any symbol in pool ({len(ts_codes)} symbols)")
 
     return data_map
+
+
+def fetch_benchmark_series(start_date: str,
+                           end_date: str,
+                           token: str = None,
+                           benchmark_code: str = '000300.SH') -> Optional[pd.Series]:
+    """Fetch benchmark close series (default HS300) with multiple tushare fallbacks."""
+    code = normalize_ts_code(benchmark_code)
+    pro = get_pro_api(token)
+
+    df = pd.DataFrame()
+
+    # Preferred: index daily API.
+    try:
+        df = pro.index_daily(ts_code=code, start_date=start_date, end_date=end_date)
+    except Exception:
+        df = pd.DataFrame()
+
+    # Fallback: pro_bar index asset.
+    if df is None or df.empty:
+        try:
+            df = ts.pro_bar(ts_code=code, start_date=start_date, end_date=end_date, asset='I')
+        except Exception:
+            df = pd.DataFrame()
+
+    # Final fallback for HS300 when index permissions are restricted.
+    if (df is None or df.empty) and code == '000300.SH':
+        try:
+            df = pro.fund_daily(ts_code='510300.SH', start_date=start_date, end_date=end_date)
+        except Exception:
+            df = pd.DataFrame()
+
+    if df is None or df.empty:
+        return None
+
+    if 'trade_date' not in df.columns or 'close' not in df.columns:
+        return None
+
+    df['trade_date'] = pd.to_datetime(df['trade_date'], format='%Y%m%d')
+    df = df.sort_values('trade_date').set_index('trade_date')
+    benchmark = df['close'].dropna()
+    if benchmark.empty:
+        return None
+    benchmark.name = code
+    return benchmark

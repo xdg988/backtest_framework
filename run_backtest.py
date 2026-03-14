@@ -5,7 +5,7 @@ import pandas as pd
 import backtrader as bt
 import argparse
 
-from data_loader.data_loader import fetch_daily_multiple, normalize_ts_code
+from data_loader.data_loader import fetch_daily_multiple, fetch_benchmark_series, normalize_ts_code
 from backtest.rotation_strategy import RotationBacktestStrategy
 from strategies import (
     ETFLinearMomentumRotation,
@@ -22,6 +22,8 @@ def run(start: str,
         token: str = None,
         strategy_class=None,
         signal_kwargs: dict = None,
+        slippage_perc: float = 0.001,
+        benchmark_code: str = '000300.SH',
         enable_charts: bool = True,
         output_dir: str = './results') -> tuple:
     """Run a backtest and return a record DataFrame.
@@ -40,14 +42,19 @@ def run(start: str,
         Strategy class from strategies module, e.g. SMACrossover. Required.
     signal_kwargs : dict
         Arguments for the strategy class.
-    strategy_class : class
-        Must be a multi-asset rotation strategy class from strategies module.
+    slippage_perc : float
+        Slippage percentage for each trade, e.g. 0.001 means 0.1%.
+    benchmark_code : str
+        Benchmark symbol, default HS300 index code '000300.SH'.
     """
     if strategy_class is None or not getattr(strategy_class, 'multi_asset', False):
         raise ValueError('This framework now supports multi-asset rotation strategies only.')
 
     cerebro = bt.Cerebro()
     cerebro.broker.setcash(cash)
+    if slippage_perc and slippage_perc > 0:
+        cerebro.broker.set_slippage_perc(slippage_perc)
+
     signal_kwargs = signal_kwargs or {}
     siggen = strategy_class(**signal_kwargs)
     pool_codes = [normalize_ts_code(code) for code in siggen.etf_pool]
@@ -78,6 +85,18 @@ def run(start: str,
     if enable_charts:
         report_signals = pd.Series(0, index=report_data.index)
 
+        benchmark_series = fetch_benchmark_series(
+            start_date=start,
+            end_date=end,
+            token=token,
+            benchmark_code=benchmark_code
+        )
+        benchmark_value = None
+        if benchmark_series is not None and not benchmark_series.empty:
+            aligned = benchmark_series.reindex(rec.index).ffill().dropna()
+            if not aligned.empty and aligned.iloc[0] != 0:
+                benchmark_value = aligned / aligned.iloc[0] * cash
+
         # Create comprehensive report
         report_gen = ReportGenerator()
         report_path = report_gen.generate_report(
@@ -88,6 +107,7 @@ def run(start: str,
             trades=strat.trades,
             data=report_data,
             signals=report_signals,
+            benchmark=benchmark_value,
             output_dir=output_dir,
             initial_cash=cash
         )
@@ -109,6 +129,8 @@ if __name__ == '__main__':
     end = config.get('backtest.default_end')
     cash = config.get('backtest.default_cash', 100000)
     token = config.get('data.token')
+    slippage_perc = config.get('backtest.slippage_perc', 0.001)
+    benchmark_code = config.get('backtest.benchmark_code', '000300.SH')
     enable_charts = config.get('visualization.enable_charts', True)
     output_dir = config.get('visualization.output_dir', './results')
     strategy_name = config.get('backtest.default_strategy', 'ETFLinearMomentumRotation')
@@ -135,7 +157,7 @@ if __name__ == '__main__':
     signal_kwargs = config.get(f'strategies.{strategy_key}', {})
 
     # Run backtest
-    records, trades = run(start, end, cash, token, strategy_class, signal_kwargs, enable_charts, output_dir)
+    records, trades = run(start, end, cash, token, strategy_class, signal_kwargs, slippage_perc, benchmark_code, enable_charts, output_dir)
 
     if records is None:
         print("Backtest failed due to data fetching error.")

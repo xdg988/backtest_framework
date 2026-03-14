@@ -1,9 +1,9 @@
 Starting Portfolio Value: 100000.00
-Final Portfolio Value: 160288.03
+Final Portfolio Value: 191324.26
 Comprehensive report generated: ./results/backtest_report.html
 Backtest completed successfully
-Final portfolio value: 160288.03
+Final portfolio value: 191324.26
 Performance metrics:
-annual_return: 0.1714
-sharpe: 1.0406
-max_drawdown: -0.1195
+annual_return: 0.1389
+sharpe: 0.7815
+max_drawdown: -0.2508

@@ -333,6 +333,7 @@ class ReportGenerator:
     def generate_report(self, strategy_name: str, start_date: str, end_date: str,
                        records: pd.DataFrame, trades: List[Dict[str, Any]],
                        data: pd.DataFrame, signals: pd.Series,
+                       benchmark: Optional[pd.Series] = None,
                        output_dir: str = "./results",
                        initial_cash: float = 100000) -> str:
         """
@@ -346,6 +347,7 @@ class ReportGenerator:
             trades: List of trade records
             data: Price data DataFrame
             signals: Trading signals Series
+            benchmark: Optional benchmark series aligned to records index
             output_dir: Directory to save report and charts
             initial_cash: Initial cash amount
 
@@ -360,7 +362,7 @@ class ReportGenerator:
 
         # Generate charts
         visualizer = BacktestVisualizer(output_dir)
-        charts = visualizer.create_summary_dashboard(records, all_metrics, trades, data, signals)
+        charts = visualizer.create_summary_dashboard(records, all_metrics, trades, data, signals, benchmark)
 
         # Prepare key metrics for display
         key_metrics = [

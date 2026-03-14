@@ -255,7 +255,7 @@ class BacktestVisualizer:
 
     def create_summary_dashboard(self, records: pd.DataFrame, metrics: Dict[str, float],
                                trades: List[Dict[str, Any]], data: pd.DataFrame,
-                               signals: pd.Series) -> Dict[str, str]:
+                               signals: pd.Series, benchmark: Optional[pd.Series] = None) -> Dict[str, str]:
         """
         Create a complete dashboard with multiple plots.
 
@@ -265,6 +265,7 @@ class BacktestVisualizer:
             trades: List of trade records
             data: Price data DataFrame
             signals: Trading signals Series
+            benchmark: Optional benchmark portfolio-value-like series
 
         Returns:
             Dictionary mapping plot names to file paths
@@ -272,7 +273,7 @@ class BacktestVisualizer:
         plots = {}
 
         # Portfolio value plot
-        plots['portfolio'] = self.plot_portfolio_value(records)
+        plots['portfolio'] = self.plot_portfolio_value(records, benchmark=benchmark)
 
         # Drawdown plot
         plots['drawdown'] = self.plot_drawdown(records)
