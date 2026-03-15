@@ -10,10 +10,32 @@ from backtest.rotation_strategy import RotationBacktestStrategy
 from strategies import (
     ETFLinearMomentumRotation,
     ETFTrendCorrRotation,
+    ETFMomentumEPORotation,
+    ETFDandyRotation,
+    ETFSafeDogRotation,
+    ETFCoreRotationStoploss,
+    ETFVolCorrRotation,
+    ETFEpoLowCorrCombo,
 )
 from backtest.performance import compute_performance
 from config.config import Config
 from reporting import ReportGenerator
+
+
+def _normalize_code_like_value(value):
+    """Recursively normalize security-code-like strings in strategy kwargs."""
+    if isinstance(value, str):
+        stripped = value.strip()
+        if stripped.endswith(('.XSHG', '.XSHE', '.SH', '.SZ')):
+            return normalize_ts_code(stripped)
+        return value
+    if isinstance(value, list):
+        return [_normalize_code_like_value(item) for item in value]
+    if isinstance(value, tuple):
+        return tuple(_normalize_code_like_value(item) for item in value)
+    if isinstance(value, dict):
+        return {key: _normalize_code_like_value(val) for key, val in value.items()}
+    return value
 
 
 def run(start: str,
@@ -22,7 +44,10 @@ def run(start: str,
         token: str = None,
         strategy_class=None,
         signal_kwargs: dict = None,
+    commission: float = 0.0005,
         slippage_perc: float = 0.001,
+    target_percent: float = 0.98,
+    cost_buffer: float = 0.003,
         benchmark_code: str = '000300.SH',
         enable_charts: bool = True,
         output_dir: str = './results') -> tuple:
@@ -52,10 +77,12 @@ def run(start: str,
 
     cerebro = bt.Cerebro()
     cerebro.broker.setcash(cash)
+    if commission is not None and commission >= 0:
+        cerebro.broker.setcommission(commission=commission)
     if slippage_perc and slippage_perc > 0:
         cerebro.broker.set_slippage_perc(slippage_perc)
 
-    signal_kwargs = signal_kwargs or {}
+    signal_kwargs = _normalize_code_like_value(signal_kwargs or {})
     siggen = strategy_class(**signal_kwargs)
     pool_codes = [normalize_ts_code(code) for code in siggen.etf_pool]
     siggen.etf_pool = pool_codes
@@ -70,7 +97,12 @@ def run(start: str,
         datafeed = bt.feeds.PandasData(dataname=df_item)
         cerebro.adddata(datafeed, name=code)
 
-    cerebro.addstrategy(RotationBacktestStrategy, signal_generator=siggen)
+    cerebro.addstrategy(
+        RotationBacktestStrategy,
+        signal_generator=siggen,
+        target_percent=target_percent,
+        cost_buffer=cost_buffer,
+    )
     report_data = next(iter(data_map.values()))
 
     print(f"Starting Portfolio Value: {cerebro.broker.getvalue():.2f}")
@@ -130,6 +162,9 @@ if __name__ == '__main__':
     cash = config.get('backtest.default_cash', 100000)
     token = config.get('data.token')
     slippage_perc = config.get('backtest.slippage_perc', 0.001)
+    commission = config.get('backtest.commission', 0.0005)
+    target_percent = config.get('backtest.target_percent', 0.98)
+    cost_buffer = config.get('backtest.cost_buffer', 0.003)
     benchmark_code = config.get('backtest.benchmark_code', '000300.SH')
     enable_charts = config.get('visualization.enable_charts', True)
     output_dir = config.get('visualization.output_dir', './results')
@@ -142,6 +177,12 @@ if __name__ == '__main__':
     strategy_map = {
         'ETFLinearMomentumRotation': ETFLinearMomentumRotation,
         'ETFTrendCorrRotation': ETFTrendCorrRotation,
+        'ETFMomentumEPORotation': ETFMomentumEPORotation,
+        'ETFDandyRotation': ETFDandyRotation,
+        'ETFSafeDogRotation': ETFSafeDogRotation,
+        'ETFCoreRotationStoploss': ETFCoreRotationStoploss,
+        'ETFVolCorrRotation': ETFVolCorrRotation,
+        'ETFEpoLowCorrCombo': ETFEpoLowCorrCombo,
     }
     if strategy_name not in strategy_map:
         raise ValueError(f"Unsupported strategy in config: {strategy_name}. Available: {list(strategy_map.keys())}")
@@ -152,12 +193,37 @@ if __name__ == '__main__':
     strategy_config_key_map = {
         'ETFLinearMomentumRotation': 'etf_linear_rotation',
         'ETFTrendCorrRotation': 'etf_trend_corr_rotation',
+        'ETFMomentumEPORotation': 'etf_momentum_epo_rotation',
+        'ETFDandyRotation': 'etf_dandy_rotation',
+        'ETFSafeDogRotation': 'etf_safe_dog_rotation',
+        'ETFCoreRotationStoploss': 'etf_core_rotation_stoploss',
+        'ETFVolCorrRotation': 'etf_volcorr_rotation',
+        'ETFEpoLowCorrCombo': 'etf_epo_lowcorr_combo',
     }
     strategy_key = strategy_config_key_map[strategy_name]
-    signal_kwargs = config.get(f'strategies.{strategy_key}', {})
+    strategy_cfg = dict(config.get(f'strategies.{strategy_key}', {}) or {})
+    strategy_slippage = strategy_cfg.pop('slippage_perc', slippage_perc)
+    strategy_commission = strategy_cfg.pop('commission', commission)
+    strategy_target_percent = strategy_cfg.pop('target_percent', target_percent)
+    strategy_cost_buffer = strategy_cfg.pop('cost_buffer', cost_buffer)
+    signal_kwargs = strategy_cfg
 
     # Run backtest
-    records, trades = run(start, end, cash, token, strategy_class, signal_kwargs, slippage_perc, benchmark_code, enable_charts, output_dir)
+    records, trades = run(
+        start=start,
+        end=end,
+        cash=cash,
+        token=token,
+        strategy_class=strategy_class,
+        signal_kwargs=signal_kwargs,
+        commission=strategy_commission,
+        slippage_perc=strategy_slippage,
+        target_percent=strategy_target_percent,
+        cost_buffer=strategy_cost_buffer,
+        benchmark_code=benchmark_code,
+        enable_charts=enable_charts,
+        output_dir=output_dir,
+    )
 
     if records is None:
         print("Backtest failed due to data fetching error.")

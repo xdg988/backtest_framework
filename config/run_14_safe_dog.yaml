@@ -4,7 +4,7 @@ data:
   cache_expiry_days: 7
 
 backtest:
-  default_strategy: "ETFMomentumEPORotation"
+  default_strategy: "ETFSafeDogRotation"
   default_ts_code: "000001.SZ"
   default_cash: 100000
   default_start: "20210101"
@@ -126,81 +126,46 @@ strategies:
     top_n: 1
     score_min: 0.0
     score_max: 5.0
-  etf_core_rotation_stoploss:
-    commission: 0.0002
+  etf_all_weather_rotation:
+    commission: 0.0003
     slippage_perc: 0.0
     target_percent: 0.98
     cost_buffer: 0.003
-    etf_pool:
-      - "518880.XSHG"
-      - "513100.XSHG"
-      - "159915.XSHE"
-      - "510180.XSHG"
-    m_days: 25
-    history_window: 100
-    hold_drop_threshold: 0.96
-  etf_volcorr_rotation:
-    target_percent: 0.98
-    cost_buffer: 0.003
-    etf_pool:
-      - "512660.XSHG"
-      - "511010.XSHG"
-      - "510880.XSHG"
-      - "159915.XSHE"
-      - "513050.XSHG"
-      - "510050.XSHG"
-      - "588100.XSHG"
-      - "512100.XSHG"
-      - "518800.XSHG"
-      - "513060.XSHG"
-      - "512980.XSHG"
-      - "512010.XSHG"
-      - "513100.XSHG"
-      - "512720.XSHG"
-      - "512070.XSHG"
-      - "515880.XSHG"
-      - "159920.XSHE"
-      - "159922.XSHE"
-      - "513520.XSHG"
-      - "515000.XSHG"
-      - "515790.XSHG"
-      - "515700.XSHG"
-      - "159825.XSHE"
-      - "512400.XSHG"
-      - "512200.XSHG"
-      - "513360.XSHG"
-      - "512480.XSHG"
-      - "510230.XSHG"
-      - "159647.XSHE"
-      - "159928.XSHE"
-    m_days: 25
-    corr_lookback: 729
-    corr_pick: 4
-    vol_min: 0.05
-    vol_max: 0.33
-    score_min: -0.5
-    score_max: 4.5
-    annual_days: 243
-  etf_epo_lowcorr_combo:
-    commission: 0.0002
-    slippage_perc: 0.002
-    target_percent: 0.98
-    cost_buffer: 0.003
-    etf_pool:
-      - "159985.XSHE"
-      - "518800.XSHG"
-      - "513000.XSHG"
-      - "513100.XSHG"
+    big_etf: "510300.XSHG"
+    small_etf: "159915.XSHE"
+    foreign_etf_pool:
       - "513030.XSHG"
-      - "159930.XSHE"
-      - "159981.XSHE"
-      - "159980.XSHE"
-      - "510880.XSHG"
-      - "510230.XSHG"
-    lookback: 250
-    lambda_: 10.0
-    shrink_w: 0.6
-    min_history: 200
+      - "513100.XSHG"
+      - "159866.XSHE"
+    defensive_etf: "518880.XSHG"
+    lookback_days: 10
+    min_domestic_return: 0.0
+    min_foreign_return: 0.0
+  etf_white_horse_defense_rotation:
+    commission: 0.00012
+    slippage_perc: 0.001
+    target_percent: 0.98
+    cost_buffer: 0.003
+    hs300_proxy: "510300.XSHG"
+    cold_pool:
+      - "511010.XSHG"
+      - "518880.XSHG"
+      - "510180.XSHG"
+    warm_pool:
+      - "510300.XSHG"
+      - "510180.XSHG"
+      - "159915.XSHE"
+      - "513100.XSHG"
+    hot_pool:
+      - "159915.XSHE"
+      - "512100.XSHG"
+      - "515880.XSHG"
+      - "513100.XSHG"
+    m_days: 25
+    temp_lookback: 220
+    warm_lookback: 60
+    min_score: -1.0
+    fallback_etf: "511010.XSHG"
 
 visualization:
   output_dir: "./results"

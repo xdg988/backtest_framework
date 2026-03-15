@@ -16,7 +16,7 @@ conda activate quant
 # Ensure results directory exists
 mkdir -p results
 
-# Run backtest with YAML configuration
-python run_backtest.py > results/backtest.log 2>&1
+# Run backtest with YAML configuration (supports extra args, e.g. --config ...)
+python run_backtest.py "$@" > results/backtest.log 2>&1
 
 echo "Backtest completed. Check results/backtest.log and results/ directory for output and report."
