@@ -3,6 +3,7 @@ Report generation module for creating HTML reports and saving results.
 """
 
 import os
+import base64
 import pandas as pd
 from jinja2 import Template, Environment
 from typing import Dict, Any, List, Optional
@@ -229,9 +230,9 @@ class ReportGenerator:
         </div>
 
         <div class="section">
-            <h2>净值曲线</h2>
+            <h2>收益曲线</h2>
             <div class="chart-container">
-                <img src="{{ portfolio_chart }}" alt="Portfolio Value Chart">
+                {{ returns_curve_html | safe }}
             </div>
         </div>
 
@@ -427,10 +428,10 @@ class ReportGenerator:
             'trade_metrics': trade_metrics,
             'all_metrics': detailed_metrics,
             'trades': display_trades,
-            'portfolio_chart': os.path.basename(charts['portfolio']),
-            'drawdown_chart': os.path.basename(charts['drawdown']),
-            'signals_chart': os.path.basename(charts['signals']),
-            'returns_dist_chart': os.path.basename(charts['returns_dist']),
+            'returns_curve_html': charts['returns_curve_html'],
+            'drawdown_chart': self._image_to_base64(charts['drawdown']),
+            'signals_chart': self._image_to_base64(charts['signals']),
+            'returns_dist_chart': self._image_to_base64(charts['returns_dist']),
         }
 
         # Generate HTML
@@ -442,6 +443,12 @@ class ReportGenerator:
             f.write(html_content)
 
         return report_path
+
+    def _image_to_base64(self, image_path: str) -> str:
+        """Convert local image file to a data URI for single-file HTML embedding."""
+        with open(image_path, 'rb') as image_file:
+            encoded = base64.b64encode(image_file.read()).decode('utf-8')
+        return f"data:image/png;base64,{encoded}"
 
     def _get_category_name(self, category: str) -> str:
         """Get display name for metric category."""

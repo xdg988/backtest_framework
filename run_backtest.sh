@@ -11,7 +11,7 @@ source ~/miniconda3/etc/profile.d/conda.sh
 conda activate quant
 
 # Install/update dependencies if needed
-pip install -r requirements.txt
+# pip install -r requirements.txt
 
 # Ensure results directory exists
 mkdir -p results

@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import pandas as pd
 from typing import List, Dict, Any, Optional
+import plotly.graph_objects as go
 
 
 class BacktestVisualizer:
@@ -272,8 +273,8 @@ class BacktestVisualizer:
         """
         plots = {}
 
-        # Portfolio value plot
-        plots['portfolio'] = self.plot_portfolio_value(records, benchmark=benchmark)
+        # Interactive returns curve (single-file HTML embed)
+        plots['returns_curve_html'] = self.build_interactive_returns_curve(records, benchmark=benchmark)
 
         # Drawdown plot
         plots['drawdown'] = self.plot_drawdown(records)
@@ -286,3 +287,67 @@ class BacktestVisualizer:
         plots['returns_dist'] = self.plot_returns_distribution(returns)
 
         return plots
+
+    def build_interactive_returns_curve(self, records: pd.DataFrame,
+                                        benchmark: Optional[pd.Series] = None) -> str:
+        """Build interactive cumulative returns curve HTML.
+
+        Features:
+        - Hover tooltip
+        - Range buttons (1W/1M/6M/1Y/ALL)
+        - Bottom range slider for custom date window
+        """
+        value = records['value'].dropna()
+        if value.empty:
+            return '<div>无可用收益曲线数据</div>'
+
+        strat_ret = (value / value.iloc[0] - 1.0) * 100
+
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(
+            x=strat_ret.index,
+            y=strat_ret.values,
+            mode='lines',
+            name='策略收益率',
+            line=dict(color='#1f77b4', width=2),
+            hovertemplate='日期: %{x|%Y-%m-%d}<br>策略收益: %{y:.2f}%<extra></extra>'
+        ))
+
+        if benchmark is not None and not benchmark.empty:
+            bench_aligned = benchmark.reindex(strat_ret.index).ffill().dropna()
+            if not bench_aligned.empty and bench_aligned.iloc[0] != 0:
+                bench_ret = (bench_aligned / bench_aligned.iloc[0] - 1.0) * 100
+                fig.add_trace(go.Scatter(
+                    x=bench_ret.index,
+                    y=bench_ret.values,
+                    mode='lines',
+                    name='沪深300基准收益率',
+                    line=dict(color='#2ca02c', width=2, dash='dash'),
+                    hovertemplate='日期: %{x|%Y-%m-%d}<br>基准收益: %{y:.2f}%<extra></extra>'
+                ))
+
+        fig.update_layout(
+            title='收益曲线（策略 vs 基准）',
+            xaxis=dict(
+                title='日期',
+                rangeselector=dict(
+                    buttons=list([
+                        dict(count=7, label='近一周', step='day', stepmode='backward'),
+                        dict(count=1, label='一个月', step='month', stepmode='backward'),
+                        dict(count=6, label='六个月', step='month', stepmode='backward'),
+                        dict(count=1, label='一年', step='year', stepmode='backward'),
+                        dict(step='all', label='全部'),
+                    ])
+                ),
+                rangeslider=dict(visible=True),
+                type='date'
+            ),
+            yaxis=dict(title='累计收益率 (%)'),
+            hovermode='x unified',
+            template='plotly_white',
+            margin=dict(l=40, r=20, t=60, b=40),
+            height=520,
+            legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1)
+        )
+
+        return fig.to_html(full_html=False, include_plotlyjs='inline', config={'displaylogo': False})
