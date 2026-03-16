@@ -10,6 +10,12 @@ cd /home/ecs-user/code/backtest_framework
 source ~/miniconda3/etc/profile.d/conda.sh
 conda activate quant
 
+# Source local env token file if present (keeps token out of default.yaml)
+if [ -f "$(pwd)/env/set_tushare_token.sh" ]; then
+	# shellcheck disable=SC1090
+	. "$(pwd)/env/set_tushare_token.sh"
+fi
+
 # Install/update dependencies if needed
 # pip install -r requirements.txt
 

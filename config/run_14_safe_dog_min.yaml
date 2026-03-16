@@ -1,0 +1,33 @@
+backtest:
+  benchmark_code: 000300.SH
+  commission: 0.0005
+  cost_buffer: 0.003
+  default_cash: 100000
+  default_end: '20251231'
+  default_start: '20210101'
+  default_strategy: ETFSafeDogRotation
+  default_ts_code: 000001.SZ
+  slippage_perc: 0.002
+  target_percent: 0.98
+data:
+  cache_dir: ./data_cache
+  cache_expiry_days: 7
+  token: xx
+strategies:
+  etf_safe_dog_rotation:
+    commission: 0.0002
+    cost_buffer: 0.003
+    etf_pool:
+    - 518880.XSHG
+    - 513100.XSHG
+    - 159915.XSHE
+    - 510180.XSHG
+    m_days: 25
+    score_max: 5.0
+    score_min: 0.0
+    slippage_perc: 0.001
+    target_percent: 0.98
+    top_n: 1
+visualization:
+  enable_charts: true
+  output_dir: ./results

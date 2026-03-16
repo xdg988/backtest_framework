@@ -1,0 +1,61 @@
+backtest:
+  benchmark_code: 000300.SH
+  commission: 0.0005
+  cost_buffer: 0.003
+  default_cash: 100000
+  default_end: '20251231'
+  default_start: '20210101'
+  default_strategy: ETFVolCorrRotation
+  default_ts_code: 000001.SZ
+  slippage_perc: 0.002
+  target_percent: 0.98
+data:
+  cache_dir: ./data_cache
+  cache_expiry_days: 7
+  token: xx
+strategies:
+  etf_volcorr_rotation:
+    annual_days: 243
+    corr_lookback: 729
+    corr_pick: 4
+    cost_buffer: 0.003
+    etf_pool:
+    - 512660.XSHG
+    - 511010.XSHG
+    - 510880.XSHG
+    - 159915.XSHE
+    - 513050.XSHG
+    - 510050.XSHG
+    - 588100.XSHG
+    - 512100.XSHG
+    - 518800.XSHG
+    - 513060.XSHG
+    - 512980.XSHG
+    - 512010.XSHG
+    - 513100.XSHG
+    - 512720.XSHG
+    - 512070.XSHG
+    - 515880.XSHG
+    - 159920.XSHE
+    - 159922.XSHE
+    - 513520.XSHG
+    - 515000.XSHG
+    - 515790.XSHG
+    - 515700.XSHG
+    - 159825.XSHE
+    - 512400.XSHG
+    - 512200.XSHG
+    - 513360.XSHG
+    - 512480.XSHG
+    - 510230.XSHG
+    - 159647.XSHE
+    - 159928.XSHE
+    m_days: 25
+    score_max: 4.5
+    score_min: -0.5
+    target_percent: 0.98
+    vol_max: 0.33
+    vol_min: 0.05
+visualization:
+  enable_charts: true
+  output_dir: ./results

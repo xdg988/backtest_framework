@@ -1,0 +1,16 @@
+# Ignore local environment token file
+env/set_tushare_token.sh
+
+# Python bytecode
+__pycache__/
+*.py[cod]
+
+# Virtual envs
+venv/
+env/
+
+# Data cache
+data_cache/
+
+# Backtest output results (ignore all generated reports/logs)
+results/
