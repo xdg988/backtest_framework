@@ -28,6 +28,7 @@ class ETFCoreRotationStoploss:
         self.hold_drop_threshold = float(hold_drop_threshold)
 
     def _momentum_score(self, window: pd.Series) -> float:
+        # Momentum ranking metric used to pick current best asset.
         values = window.dropna().values
         if len(values) < self.m_days:
             return np.nan
@@ -43,6 +44,7 @@ class ETFCoreRotationStoploss:
         return annualized_returns * r_squared
 
     def _evaluate_worth(self, series: pd.Series, is_hold: bool) -> int:
+        # Return 1 means "allowed to hold/open", 0 means "avoid/exit".
         values = series.dropna().values
         if len(values) < 10:
             return 0
@@ -55,7 +57,9 @@ class ETFCoreRotationStoploss:
         mean4 = float(np.mean(values[-4:]))
 
         if is_hold:
+            # Existing position: use a simple one-day drop stop.
             return 0 if cur2yes <= self.hold_drop_threshold else 1
+        # New entry: require current price not weaker than recent short mean.
         return 1 if cur_p >= mean4 else 0
 
     def generate_targets(self, close_panel: pd.DataFrame) -> pd.Series:
@@ -90,9 +94,11 @@ class ETFCoreRotationStoploss:
 
             if holding is not None:
                 prev_holding = holding
+                # Leave position if leader changed or hold quality degraded.
                 if selected != holding or hold_worth == 0:
                     holding = None
 
+            # Re-enter only when leader is acceptable under entry filter.
             if selected != prev_holding:
                 holding = selected
             elif holding is None and selected == prev_holding and sel_worth == 1:

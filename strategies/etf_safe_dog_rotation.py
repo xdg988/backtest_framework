@@ -34,6 +34,7 @@ class ETFSafeDogRotation:
         self.score_max = float(score_max)
 
     def _momentum_score(self, window: pd.Series) -> float:
+        # Same weighted momentum metric as core linear-rotation strategy.
         values = window.dropna().values
         if len(values) < self.m_days:
             return np.nan
@@ -66,6 +67,7 @@ class ETFSafeDogRotation:
             hist = panel.iloc[idx - self.m_days + 1: idx + 1]
             scores = {code: self._momentum_score(hist[code]) for code in hist.columns}
             score_s = pd.Series(scores).dropna().sort_values(ascending=False)
+            # "Safe" regime band: avoid too weak or overly extreme signals.
             score_s = score_s[(score_s > self.score_min) & (score_s <= self.score_max)]
             if score_s.empty:
                 continue

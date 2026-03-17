@@ -36,6 +36,7 @@ class ETFDandyRotation:
 
     @staticmethod
     def _calc_signal(series: pd.Series) -> tuple[float, float] | None:
+        # Strategy uses a fixed 23-day micro-window from the original idea.
         values = series.dropna().values
         if len(values) < 23:
             return None
@@ -45,6 +46,7 @@ class ETFDandyRotation:
         if len(base_window) < 3 or np.any(base_window <= 0):
             return None
         base_price = float(np.mean(base_window))
+        # Momentum proxy compares recent 3 bars vs anchor 3 bars.
         momentum = float((values[-3:].sum() - base_window.sum()) * 100.0 / base_window.sum())
         return momentum, curr_price / base_price
 
@@ -77,6 +79,7 @@ class ETFDandyRotation:
             top_code = rank_rows[0][1]
             top_ratio = ratio_map[top_code]
 
+            # State machine: open / hold / switch based on threshold confirmations.
             if holding is None:
                 if top_ratio > self.buy_threshold:
                     holding = top_code

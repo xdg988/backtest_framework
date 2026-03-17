@@ -34,6 +34,7 @@ class ETFLinearMomentumRotation:
         self.min_score = min_score
 
     def _momentum_score(self, window: pd.Series) -> float:
+        # Weighted linear fit on log-prices to favor recent observations.
         values = window.dropna().values
         if len(values) < self.m_days:
             return np.nan
@@ -54,6 +55,7 @@ class ETFLinearMomentumRotation:
             return np.nan
         r_squared = 1 - (np.sum(weighted_residuals) / denominator)
 
+        # Final ranking score: trend return adjusted by fit quality.
         return annualized_returns * r_squared
 
     def generate_targets(self, close_panel: pd.DataFrame) -> pd.Series:
@@ -73,11 +75,13 @@ class ETFLinearMomentumRotation:
             hist = panel.iloc[idx - self.m_days + 1: idx + 1]
             scores = {code: self._momentum_score(hist[code]) for code in hist.columns}
             score_s = pd.Series(scores).dropna().sort_values(ascending=False)
+            # Optional absolute quality filter.
             if self.min_score is not None:
                 score_s = score_s[score_s >= self.min_score]
             if score_s.empty:
                 continue
             selected = score_s.index[:max(1, self.top_n)]
+            # Rotation engine in one-target mode only consumes the first code.
             target.iloc[idx] = selected[0]
 
         return target

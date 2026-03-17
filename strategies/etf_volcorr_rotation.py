@@ -38,6 +38,7 @@ class ETFVolCorrRotation:
         self.annual_days = int(annual_days)
 
     def _momentum_score(self, window: pd.Series) -> float:
+        # Unweighted log-price regression momentum score.
         values = window.dropna().values
         if len(values) < self.m_days:
             return np.nan
@@ -52,6 +53,7 @@ class ETFVolCorrRotation:
         return annualized_returns * r_squared
 
     def _min_corr_subset(self, hist: pd.DataFrame) -> list[str]:
+        # Require complete price history in lookback window for stable correlation estimate.
         p = hist.dropna(axis=1, how='any')
         if p.empty:
             return []
@@ -60,12 +62,14 @@ class ETFVolCorrRotation:
         if r.empty:
             return []
         v = r.std() * np.sqrt(self.annual_days)
+        # Volatility filter removes overly quiet or too-volatile ETFs.
         v = v[(v > self.vol_min) & (v < self.vol_max)]
         if v.empty:
             return []
 
         r = r[v.index]
         corr = r.corr()
+        # Pick instruments with smallest average absolute correlation.
         corr_mean = corr.abs().mean(axis=1).sort_values()
         return corr_mean.index[:self.corr_pick].tolist()
 
@@ -85,6 +89,7 @@ class ETFVolCorrRotation:
             mom_hist = panel.loc[hist.index, subset].iloc[-self.m_days:]
             scores = {code: self._momentum_score(mom_hist[code]) for code in subset}
             score_s = pd.Series(scores).dropna()
+            # Momentum signal validity band.
             score_s = score_s[(score_s > self.score_min) & (score_s < self.score_max)]
             score_s = score_s.sort_values(ascending=False)
             if score_s.empty:

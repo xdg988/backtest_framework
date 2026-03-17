@@ -43,6 +43,7 @@ class ETFTrendCorrRotation:
         self.score_max = score_max
 
     def _momentum_score(self, window: pd.Series) -> float:
+        # Momentum quality score from log-price trend and fit quality.
         values = window.dropna().values
         if len(values) < self.m_days:
             return np.nan
@@ -57,6 +58,7 @@ class ETFTrendCorrRotation:
         return annualized_returns * r_squared
 
     def _trend_filter(self, hist: pd.DataFrame) -> list[str]:
+        # Stage 1: keep assets in uptrend (short MA > long MA).
         candidates = []
         for code in hist.columns:
             series = hist[code].dropna()
@@ -72,6 +74,7 @@ class ETFTrendCorrRotation:
         if len(candidates) <= self.corr_pick:
             return candidates
 
+        # Stage 2: from trend candidates, keep low-correlation subset.
         returns = np.log(hist[candidates]).diff().dropna(how='all')
         if returns.empty:
             return candidates
@@ -104,6 +107,7 @@ class ETFTrendCorrRotation:
                 for code in low_corr
             }
             score_s = pd.Series(scores).dropna()
+            # Stage 3: apply score band and pick the strongest asset.
             score_s = score_s[(score_s > self.score_min) & (score_s < self.score_max)]
             score_s = score_s.sort_values(ascending=False)
 

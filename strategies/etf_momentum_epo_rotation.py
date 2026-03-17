@@ -38,6 +38,7 @@ class ETFMomentumEPORotation:
         self.min_score = float(min_score)
 
     def _momentum_score(self, window: pd.Series) -> float:
+        # First stage: rank candidates by momentum quality.
         values = window.dropna().values
         if len(values) < self.m_days:
             return np.nan
@@ -54,6 +55,7 @@ class ETFMomentumEPORotation:
         return annualized_returns * r_squared
 
     def _epo_pick(self, returns: pd.DataFrame) -> str | None:
+        # Second stage: from top-N candidates, select highest EPO implied weight.
         if returns.empty or returns.shape[1] == 0:
             return None
         if returns.shape[1] == 1:
@@ -72,11 +74,13 @@ class ETFMomentumEPORotation:
             return None
 
         inv_diag = 1.0 / diag
+        # Anchor portfolio favors lower-variance assets.
         anchor = inv_diag / inv_diag.sum()
 
         std = np.sqrt(diag)
         corr = returns.corr().values
         identity = np.eye(corr.shape[0])
+        # Correlation shrinkage improves numerical stability.
         shrunk_corr = (1 - self.w) * corr + self.w * identity
         cov_tilde = np.diag(std) @ shrunk_corr @ np.diag(std)
 
@@ -124,6 +128,7 @@ class ETFMomentumEPORotation:
                 continue
 
             returns = hist[selected].pct_change(fill_method=None).dropna()
+            # Fallback to top momentum name if EPO cannot produce stable result.
             picked = self._epo_pick(returns)
             target.iloc[idx] = picked if picked is not None else selected[0]
 

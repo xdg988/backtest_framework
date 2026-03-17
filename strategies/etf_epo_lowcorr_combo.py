@@ -31,10 +31,12 @@ class ETFEpoLowCorrCombo:
 
     @staticmethod
     def _first_trading_day_mask(index: pd.Index) -> np.ndarray:
+        # Rebalance only on first trading day of each month.
         months = pd.Series(index=index, data=index.to_period('M'))
         return (months != months.shift(1)).values
 
     def _epo_weights(self, returns: pd.DataFrame) -> pd.Series | None:
+        # Produce long-only normalized EPO weights on selected universe.
         n = returns.shape[1]
         if n == 0:
             return None
@@ -102,6 +104,7 @@ class ETFEpoLowCorrCombo:
             if weights is None or weights.empty:
                 continue
 
+            # Write only rebalance-date weights; non-rebalance days remain NaN.
             weights_df.loc[panel.index[idx], weights.index] = weights.values
 
         return weights_df

@@ -14,16 +14,24 @@ class RotationBacktestStrategy(bt.Strategy):
     )
 
     def __init__(self):
+        # Store active orders to avoid submitting duplicated rebalance orders on the same bar.
         self.pending_orders = []
+        # Filled order records used by report generation.
         self.trades = []
+        # Daily account snapshots used by visual/report module.
         self.records = []
+        # One-of-N target mode: per date -> selected symbol.
         self.target_series = None
+        # Weight mode: per date -> weight vector.
         self.target_weights = None
         self.use_weight_targets = False
+        # Last submitted weights, used to skip no-op rebalances.
         self.last_target_weights = {}
+        # Fast symbol->data lookup for order placement.
         self.data_by_name = {data._name: data for data in self.datas}
 
     def _build_close_panel(self) -> pd.DataFrame:
+        # Build aligned close matrix required by signal generators.
         panel = {}
         for data in self.datas:
             df = data.p.dataname
@@ -37,10 +45,12 @@ class RotationBacktestStrategy(bt.Strategy):
         return len(self.pending_orders) > 0
 
     def next(self):
+        # Wait until all previous orders are settled before issuing new rebalance orders.
         if self._has_pending_order():
             return
 
         if self.target_series is None and self.target_weights is None:
+            # Signal is generated once from full history, then indexed by current date.
             close_panel = self._build_close_panel()
             if hasattr(self.params.signal_generator, 'generate_target_weights'):
                 self.target_weights = self.params.signal_generator.generate_target_weights(close_panel)
@@ -82,6 +92,7 @@ class RotationBacktestStrategy(bt.Strategy):
             if raw_weights is None:
                 return
 
+            # Keep only positive finite target weights and normalize to 1.
             target_weights = raw_weights.dropna()
             target_weights = target_weights[target_weights > 0]
             if target_weights.empty:
@@ -92,6 +103,7 @@ class RotationBacktestStrategy(bt.Strategy):
                 return
             target_weights = target_weights / total_weight
 
+            # Apply deployment ratio (target_percent) and reserve cost buffer.
             scaled = {
                 code: float(weight) * max(0.0, min(1.0, float(self.params.target_percent))) *
                       (1.0 - max(0.0, min(0.05, float(self.params.cost_buffer))))
@@ -99,11 +111,13 @@ class RotationBacktestStrategy(bt.Strategy):
                 if code in self.data_by_name
             }
 
+            # Skip placing orders when effective allocation did not change.
             keys = set(scaled.keys()) | set(self.last_target_weights.keys())
             changed = any(abs(float(scaled.get(k, 0.0)) - float(self.last_target_weights.get(k, 0.0))) > 1e-6 for k in keys)
             if not changed:
                 return
 
+            # Rebalance all instruments to target percentages (including zero weight positions).
             for data in self.datas:
                 target_pct = float(scaled.get(data._name, 0.0))
                 order = self.order_target_percent(data=data, target=target_pct)
@@ -127,6 +141,7 @@ class RotationBacktestStrategy(bt.Strategy):
         target_data = self.data_by_name[target_code]
         target_pos = self.getposition(target_data)
         if target_pos.size <= 0:
+            # Use available cash to open target position with a small reserve for fees/slippage.
             target_percent = max(0.0, min(1.0, float(self.params.target_percent)))
             cost_buffer = max(0.0, min(0.05, float(self.params.cost_buffer)))
             available_cash = float(self.broker.getcash())
@@ -138,6 +153,7 @@ class RotationBacktestStrategy(bt.Strategy):
                 self.pending_orders.append(order)
 
     def notify_order(self, order):
+        # Ignore transient states; keep waiting for final status.
         if order.status in [order.Submitted, order.Accepted]:
             return
 
@@ -147,6 +163,7 @@ class RotationBacktestStrategy(bt.Strategy):
         if order.status == order.Completed:
             size = float(order.executed.size)
             action = 'BUY' if size > 0 else 'SELL'
+            # Persist a compact trade log for reporting.
             self.trades.append({
                 'date': self.datas[0].datetime.date(0).isoformat(),
                 'action': action,
