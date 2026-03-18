@@ -2,14 +2,17 @@
 Strategies module - collection of trading signal generators.
 """
 
-from .etf_linear_momentum_rotation import ETFLinearMomentumRotation
-from .etf_trend_corr_rotation import ETFTrendCorrRotation
-from .etf_momentum_epo_rotation import ETFMomentumEPORotation
-from .etf_dandy_rotation import ETFDandyRotation
-from .etf_safe_dog_rotation import ETFSafeDogRotation
-from .etf_core_rotation_stoploss import ETFCoreRotationStoploss
-from .etf_volcorr_rotation import ETFVolCorrRotation
-from .etf_epo_lowcorr_combo import ETFEpoLowCorrCombo
+from .s38_etf_linear_momentum_rotation import ETFLinearMomentumRotation
+from .s74_etf_trend_corr_rotation import ETFTrendCorrRotation
+from .s17_etf_momentum_epo_rotation import ETFMomentumEPORotation
+from .s81_etf_dandy_rotation import ETFDandyRotation
+from .s14_etf_safe_dog_rotation import ETFSafeDogRotation
+from .s22_etf_core_rotation_stoploss import ETFCoreRotationStoploss
+from .s26_etf_volcorr_rotation import ETFVolCorrRotation
+from .s32_etf_epo_lowcorr_combo import ETFEpoLowCorrCombo
+from .s58_etf_ma_momentum_rotation import ETFMAMomentumRotation
+from .s69_etf_stable_dog_rotation import ETFStableDogRotation
+from .s97_etf_trend_corr_fast_rotation import ETFTrendCorrFastRotation
 
 __all__ = [
     'ETFLinearMomentumRotation',
@@ -20,4 +23,7 @@ __all__ = [
     'ETFCoreRotationStoploss',
     'ETFVolCorrRotation',
     'ETFEpoLowCorrCombo',
+    'ETFMAMomentumRotation',
+    'ETFStableDogRotation',
+    'ETFTrendCorrFastRotation',
 ]

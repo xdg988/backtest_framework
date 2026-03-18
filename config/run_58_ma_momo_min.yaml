@@ -1,0 +1,44 @@
+data:
+  token: "xx"
+
+backtest:
+  default_strategy: "ETFMAMomentumRotation"
+  default_cash: 100000
+  default_start: "20210101"
+  default_end: "20251231"
+  benchmark_code: "000300.SH"
+
+strategies:
+  etf_ma_momentum_rotation:
+    commission: 0.0002
+    slippage_perc: 0.002
+    target_percent: 0.98
+    cost_buffer: 0.003
+    etf_pool:
+      - "516510.XSHG"
+      - "159985.XSHE"
+      - "515880.XSHG"
+      - "513060.XSHG"
+      - "512660.XSHG"
+      - "513520.XSHG"
+      - "513330.XSHG"
+      - "515790.XSHG"
+      - "512100.XSHG"
+      - "159998.XSHE"
+      - "513500.XSHG"
+      - "162719.XSHE"
+      - "159949.XSHE"
+      - "515030.XSHG"
+      - "159928.XSHE"
+      - "513100.XSHG"
+      - "159995.XSHE"
+    etf_num: 2
+    rank_num: 4
+    longdays: 20
+    shortdays: 5
+    min_inc: 0.05
+    max_inc: 0.2
+
+visualization:
+  output_dir: "./results"
+  enable_charts: true

@@ -16,26 +16,13 @@ from strategies import (
     ETFCoreRotationStoploss,
     ETFVolCorrRotation,
     ETFEpoLowCorrCombo,
+    ETFMAMomentumRotation,
+    ETFStableDogRotation,
+    ETFTrendCorrFastRotation,
 )
 from backtest.performance import compute_performance
 from config.config import Config
 from reporting import ReportGenerator
-
-
-def _normalize_code_like_value(value):
-    """Recursively normalize security-code-like strings in strategy kwargs."""
-    if isinstance(value, str):
-        stripped = value.strip()
-        if stripped.endswith(('.XSHG', '.XSHE', '.SH', '.SZ')):
-            return normalize_ts_code(stripped)
-        return value
-    if isinstance(value, list):
-        return [_normalize_code_like_value(item) for item in value]
-    if isinstance(value, tuple):
-        return tuple(_normalize_code_like_value(item) for item in value)
-    if isinstance(value, dict):
-        return {key: _normalize_code_like_value(val) for key, val in value.items()}
-    return value
 
 
 def run(start: str,
@@ -82,7 +69,7 @@ def run(start: str,
     if slippage_perc and slippage_perc > 0:
         cerebro.broker.set_slippage_perc(slippage_perc)
 
-    signal_kwargs = _normalize_code_like_value(signal_kwargs or {})
+    signal_kwargs = signal_kwargs or {}
     siggen = strategy_class(**signal_kwargs)
     pool_codes = [normalize_ts_code(code) for code in siggen.etf_pool]
     siggen.etf_pool = pool_codes
@@ -183,6 +170,9 @@ if __name__ == '__main__':
         'ETFCoreRotationStoploss': ETFCoreRotationStoploss,
         'ETFVolCorrRotation': ETFVolCorrRotation,
         'ETFEpoLowCorrCombo': ETFEpoLowCorrCombo,
+        'ETFMAMomentumRotation': ETFMAMomentumRotation,
+        'ETFStableDogRotation': ETFStableDogRotation,
+        'ETFTrendCorrFastRotation': ETFTrendCorrFastRotation,
     }
     if strategy_name not in strategy_map:
         raise ValueError(f"Unsupported strategy in config: {strategy_name}. Available: {list(strategy_map.keys())}")
@@ -199,6 +189,9 @@ if __name__ == '__main__':
         'ETFCoreRotationStoploss': 'etf_core_rotation_stoploss',
         'ETFVolCorrRotation': 'etf_volcorr_rotation',
         'ETFEpoLowCorrCombo': 'etf_epo_lowcorr_combo',
+        'ETFMAMomentumRotation': 'etf_ma_momentum_rotation',
+        'ETFStableDogRotation': 'etf_safe_dog_rotation',
+        'ETFTrendCorrFastRotation': 'etf_trend_corr_rotation',
     }
     strategy_key = strategy_config_key_map[strategy_name]
     strategy_cfg = dict(config.get(f'strategies.{strategy_key}', {}) or {})
