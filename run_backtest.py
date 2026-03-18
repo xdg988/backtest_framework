@@ -19,6 +19,8 @@ from strategies import (
     ETFMAMomentumRotation,
     ETFStableDogRotation,
     ETFTrendCorrFastRotation,
+    ETFDefensiveMACDRotation,
+    ETFFixedIncomePlusRebalance,
 )
 from backtest.performance import compute_performance
 from config.config import Config
@@ -173,6 +175,8 @@ if __name__ == '__main__':
         'ETFMAMomentumRotation': ETFMAMomentumRotation,
         'ETFStableDogRotation': ETFStableDogRotation,
         'ETFTrendCorrFastRotation': ETFTrendCorrFastRotation,
+        'ETFDefensiveMACDRotation': ETFDefensiveMACDRotation,
+        'ETFFixedIncomePlusRebalance': ETFFixedIncomePlusRebalance,
     }
     if strategy_name not in strategy_map:
         raise ValueError(f"Unsupported strategy in config: {strategy_name}. Available: {list(strategy_map.keys())}")
@@ -192,6 +196,8 @@ if __name__ == '__main__':
         'ETFMAMomentumRotation': 'etf_ma_momentum_rotation',
         'ETFStableDogRotation': 'etf_safe_dog_rotation',
         'ETFTrendCorrFastRotation': 'etf_trend_corr_rotation',
+        'ETFDefensiveMACDRotation': 'etf_defensive_macd_rotation',
+        'ETFFixedIncomePlusRebalance': 'etf_fixed_income_plus_rebalance',
     }
     strategy_key = strategy_config_key_map[strategy_name]
     strategy_cfg = dict(config.get(f'strategies.{strategy_key}', {}) or {})

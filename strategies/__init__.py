@@ -13,6 +13,8 @@ from .s32_etf_epo_lowcorr_combo import ETFEpoLowCorrCombo
 from .s58_etf_ma_momentum_rotation import ETFMAMomentumRotation
 from .s69_etf_stable_dog_rotation import ETFStableDogRotation
 from .s97_etf_trend_corr_fast_rotation import ETFTrendCorrFastRotation
+from .s85_etf_defensive_macd_rotation import ETFDefensiveMACDRotation
+from .s90_fixed_income_plus_rebalance import ETFFixedIncomePlusRebalance
 
 __all__ = [
     'ETFLinearMomentumRotation',
@@ -26,4 +28,6 @@ __all__ = [
     'ETFMAMomentumRotation',
     'ETFStableDogRotation',
     'ETFTrendCorrFastRotation',
+    'ETFDefensiveMACDRotation',
+    'ETFFixedIncomePlusRebalance',
 ]

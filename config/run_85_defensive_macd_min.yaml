@@ -1,0 +1,43 @@
+data:
+  token: "cf906b3b49a5f7df15a456bf24e09ebe3e575c0b16728c2331f544a8"
+
+backtest:
+  default_strategy: "ETFDefensiveMACDRotation"
+  default_cash: 100000
+  default_start: "20210101"
+  default_end: "20251231"
+  benchmark_code: "000300.SH"
+
+strategies:
+  etf_defensive_macd_rotation:
+    commission: 0.0002
+    slippage_perc: 0.002
+    target_percent: 0.98
+    cost_buffer: 0.003
+    etf_pool:
+      - "159949.XSHE"
+      - "513100.XSHG"
+      - "510880.XSHG"
+      - "511010.XSHG"
+      - "518880.XSHG"
+      - "511880.XSHG"
+    benchmark_code: "000300.XSHG"
+    growth_etf: "159949.XSHE"
+    us_etf: "513100.XSHG"
+    dividend_etf: "510880.XSHG"
+    bond_etf: "511010.XSHG"
+    gold_etf: "518880.XSHG"
+    cash_etf: "511880.XSHG"
+    yearly_guard_threshold: -0.06
+    macd_fast: 12
+    macd_slow: 26
+    macd_signal: 9
+    weight_slot_1: 0.125
+    weight_slot_2: 0.125
+    weight_slot_3: 0.25
+    weight_slot_4: 0.25
+    weight_slot_5: 0.25
+
+visualization:
+  output_dir: "./results"
+  enable_charts: true
