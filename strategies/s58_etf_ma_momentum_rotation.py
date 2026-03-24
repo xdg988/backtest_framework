@@ -60,18 +60,16 @@ class ETFMAMomentumRotation:
         df = pd.DataFrame(rows, columns=["code", "inc", "malong", "mashort"]).set_index("code")
         return df.sort_values("inc", ascending=False)
 
-    def generate_targets(self, close_panel: pd.DataFrame) -> pd.Series:
-        panel = close_panel.copy()
-        panel = panel[[c for c in self.etf_pool if c in panel.columns]]
-
-        target = pd.Series(index=panel.index, dtype="object")
-        holding = None
+    def _select_holdings(self, panel: pd.DataFrame) -> list[list[str]]:
+        """Select holdings per day for true top-N simultaneous holding."""
+        daily_holdings: list[list[str]] = [[] for _ in range(len(panel))]
+        holdings: list[str] = []
 
         for idx in range(self.longdays - 1, len(panel)):
             hist = panel.iloc[: idx + 1]
             metrics = self._calc_metrics(hist)
             if metrics.empty:
-                target.iloc[idx] = holding
+                daily_holdings[idx] = holdings.copy()
                 continue
 
             rank_etf = list(metrics.index)[: self.rank_num]
@@ -82,17 +80,62 @@ class ETFMAMomentumRotation:
             ]
             buy_list = list(buy_pool.index)[: self.etf_num]
 
-            if holding is None:
-                holding = buy_list[0] if buy_list else None
-            else:
-                should_sell = (holding not in rank_etf) or (
-                    holding in metrics.index and float(metrics.loc[holding, "inc"]) > self.max_inc
-                )
-                if should_sell:
-                    holding = None
-                if holding is None and buy_list:
-                    holding = buy_list[0]
+            if not holdings:
+                holdings = buy_list[: self.etf_num]
+                daily_holdings[idx] = holdings.copy()
+                continue
 
-            target.iloc[idx] = holding
+            kept: list[str] = []
+            for code in holdings:
+                if code not in metrics.index:
+                    continue
+                inc = float(metrics.loc[code, "inc"])
+                keep = (code in rank_etf) and (inc <= self.max_inc)
+                if keep:
+                    kept.append(code)
+
+            for code in buy_list:
+                if code in kept:
+                    continue
+                if len(kept) >= self.etf_num:
+                    break
+                kept.append(code)
+
+            holdings = kept
+            daily_holdings[idx] = holdings.copy()
+
+        return daily_holdings
+
+    def generate_target_weights(self, close_panel: pd.DataFrame) -> pd.DataFrame:
+        """Generate equal-weight top-N targets for multi-asset simultaneous holding."""
+        panel = close_panel.copy()
+        panel = panel[[c for c in self.etf_pool if c in panel.columns]]
+
+        weights = pd.DataFrame(index=panel.index, columns=panel.columns, dtype=float)
+        if panel.empty:
+            return weights
+
+        daily_holdings = self._select_holdings(panel)
+        for idx, holdings in enumerate(daily_holdings):
+            if not holdings:
+                continue
+            w = 1.0 / len(holdings)
+            for code in holdings:
+                if code in weights.columns:
+                    weights.iloc[idx, weights.columns.get_loc(code)] = w
+
+        return weights
+
+    def generate_targets(self, close_panel: pd.DataFrame) -> pd.Series:
+        """Backward-compatible single target: pick the highest-weight symbol each day."""
+        weights = self.generate_target_weights(close_panel)
+
+        target = pd.Series(index=weights.index, dtype="object")
+        for idx in range(len(weights)):
+            row = weights.iloc[idx].dropna()
+            if row.empty:
+                target.iloc[idx] = None
+            else:
+                target.iloc[idx] = row.sort_values(ascending=False).index[0]
 
         return target

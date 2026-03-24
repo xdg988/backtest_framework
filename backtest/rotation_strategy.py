@@ -44,6 +44,18 @@ class RotationBacktestStrategy(bt.Strategy):
         self.pending_orders = [o for o in self.pending_orders if o.alive()]
         return len(self.pending_orders) > 0
 
+    def _current_position_percent(self, data) -> float:
+        pos = self.getposition(data)
+        if pos.size == 0:
+            return 0.0
+        price = float(data.close[0]) if len(data) > 0 else 0.0
+        if price <= 0:
+            return 0.0
+        value = float(self.broker.getvalue())
+        if value <= 0:
+            return 0.0
+        return (float(pos.size) * price) / value
+
     def next(self):
         # Wait until all previous orders are settled before issuing new rebalance orders.
         if self._has_pending_order():
@@ -115,6 +127,21 @@ class RotationBacktestStrategy(bt.Strategy):
             keys = set(scaled.keys()) | set(self.last_target_weights.keys())
             changed = any(abs(float(scaled.get(k, 0.0)) - float(self.last_target_weights.get(k, 0.0))) > 1e-6 for k in keys)
             if not changed:
+                return
+
+            # Stage 1: reduce overweight positions first to release cash.
+            needs_reduce = []
+            for data in self.datas:
+                curr_pct = self._current_position_percent(data)
+                tgt_pct = float(scaled.get(data._name, 0.0))
+                if curr_pct > tgt_pct + 1e-4:
+                    needs_reduce.append((data, tgt_pct))
+
+            if needs_reduce:
+                for data, tgt_pct in needs_reduce:
+                    order = self.order_target_percent(data=data, target=tgt_pct)
+                    if order is not None:
+                        self.pending_orders.append(order)
                 return
 
             # Rebalance all instruments to target percentages (including zero weight positions).

@@ -12,8 +12,8 @@ strategies:
   etf_ma_momentum_rotation:
     commission: 0.0002
     slippage_perc: 0.002
-    target_percent: 0.98
-    cost_buffer: 0.003
+    target_percent: 0.92
+    cost_buffer: 0.015
     etf_pool:
       - "516510.XSHG"
       - "159985.XSHE"
