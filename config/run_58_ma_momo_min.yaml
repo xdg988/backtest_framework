@@ -4,14 +4,14 @@ data:
 backtest:
   default_strategy: "ETFMAMomentumRotation"
   default_cash: 100000
-  default_start: "20210101"
-  default_end: "20251231"
+  default_start: "20210412"
+  default_end: "20240625"
   benchmark_code: "000300.SH"
 
 strategies:
   etf_ma_momentum_rotation:
-    commission: 0.0002
-    slippage_perc: 0.002
+    commission: 0.0003
+    slippage_perc: 0.0
     target_percent: 0.92
     cost_buffer: 0.015
     etf_pool:

@@ -14,6 +14,8 @@ class ETFCoreRotationStoploss:
     """Daily top-1 momentum rotation with hold/re-entry filters."""
 
     multi_asset = True
+    sell_then_buy_recalc_cash = False
+    sell_first_same_bar = True
 
     def __init__(self,
                  etf_pool: list[str],
@@ -67,8 +69,9 @@ class ETFCoreRotationStoploss:
         panel = panel[[c for c in self.etf_pool if c in panel.columns]]
 
         target = pd.Series(index=panel.index, dtype='object')
+        self.cash_dates: set[pd.Timestamp] = set()
         holding = None
-        prev_holding = None
+        etf_pre = None
 
         min_idx = max(self.m_days - 1, self.history_window - 1, 10)
         for idx in range(min_idx, len(panel)):
@@ -87,23 +90,31 @@ class ETFCoreRotationStoploss:
             selected_hist = hist[selected].iloc[-self.history_window:]
             sel_worth = self._evaluate_worth(selected_hist, is_hold=False)
 
+            hold_etf = holding
             hold_worth = 0
-            if holding is not None and holding in hist.columns:
-                hold_hist = hist[holding].iloc[-self.history_window:]
+            if hold_etf is not None and hold_etf in hist.columns:
+                hold_hist = hist[hold_etf].iloc[-self.history_window:]
                 hold_worth = self._evaluate_worth(hold_hist, is_hold=True)
 
-            if holding is not None:
-                prev_holding = holding
-                # Leave position if leader changed or hold quality degraded.
-                if selected != holding or hold_worth == 0:
+            # Original JQ logic: record previous holding before any sell decision.
+            if hold_etf is not None:
+                etf_pre = hold_etf
+                # Sell when leader changed or current holding hit stop-loss.
+                if selected != hold_etf or hold_worth == 0:
                     holding = None
+                else:
+                    holding = hold_etf
 
-            # Re-enter only when leader is acceptable under entry filter.
-            if selected != prev_holding:
+            # Buy logic mirrors source strategy:
+            # 1) buy immediately if leader differs from previous holding
+            # 2) if currently empty and leader equals previous holding, re-enter only when entry filter passes
+            if selected != etf_pre:
                 holding = selected
-            elif holding is None and selected == prev_holding and sel_worth == 1:
+            elif hold_etf is None and selected == etf_pre and sel_worth == 1:
                 holding = selected
 
+            if holding is None:
+                self.cash_dates.add(panel.index[idx])
             target.iloc[idx] = holding
 
         return target

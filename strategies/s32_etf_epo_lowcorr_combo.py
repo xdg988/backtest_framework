@@ -20,7 +20,8 @@ class ETFEpoLowCorrCombo:
                  lookback: int = 250,
                  lambda_: float = 10.0,
                  shrink_w: float = 0.6,
-                 min_history: int = 200):
+                 min_history: int = 30,
+                 min_listing_days: int = 30):
         if not etf_pool:
             raise ValueError("etf_pool cannot be empty for ETFEpoLowCorrCombo")
         self.etf_pool = etf_pool
@@ -28,6 +29,7 @@ class ETFEpoLowCorrCombo:
         self.lambda_ = float(lambda_)
         self.shrink_w = float(shrink_w)
         self.min_history = int(min_history)
+        self.min_listing_days = int(min_listing_days)
 
     @staticmethod
     def _first_trading_day_mask(index: pd.Index) -> np.ndarray:
@@ -88,6 +90,15 @@ class ETFEpoLowCorrCombo:
                 continue
 
             hist = panel.iloc[max(0, idx - self.lookback + 1):idx + 1]
+            # Approximate source `filter_new_stock(..., 30)` using available history length.
+            listing_ok_cols = [
+                c for c in hist.columns
+                if hist[c].iloc[:].dropna().shape[0] >= self.min_listing_days
+            ]
+            if not listing_ok_cols:
+                continue
+            hist = hist[listing_ok_cols]
+
             valid_cols = [
                 c for c in hist.columns
                 if hist[c].dropna().shape[0] >= self.min_history

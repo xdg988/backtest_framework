@@ -18,6 +18,8 @@ class ETFSafeDogRotation:
     """Generate daily target ETF code using safe-bounded weighted momentum."""
 
     multi_asset = True
+    sell_then_buy_recalc_cash = False
+    sell_first_same_bar = True
 
     def __init__(self,
                  etf_pool: list[str],
@@ -50,7 +52,8 @@ class ETFSafeDogRotation:
         fitted = slope * x + intercept
         residuals = y - fitted
         weighted_residuals = weights * residuals ** 2
-        denominator = np.sum(weights * (y - np.average(y, weights=weights)) ** 2)
+        # Keep denominator consistent with original source implementation.
+        denominator = np.sum(weights * (y - np.mean(y)) ** 2)
         if denominator == 0:
             return np.nan
         r_squared = 1 - (np.sum(weighted_residuals) / denominator)
@@ -70,6 +73,7 @@ class ETFSafeDogRotation:
             # "Safe" regime band: avoid too weak or overly extreme signals.
             score_s = score_s[(score_s > self.score_min) & (score_s <= self.score_max)]
             if score_s.empty:
+                target.iloc[idx] = '__CASH__'
                 continue
             selected = score_s.index[:max(1, self.top_n)]
             target.iloc[idx] = selected[0]

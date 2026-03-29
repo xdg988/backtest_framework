@@ -1,0 +1,40 @@
+data:
+  token: "xx"
+
+backtest:
+  default_strategy: "ETFMomentumEPORotation"
+  default_cash: 100000
+  default_start: "20190101"
+  default_end: "20240321"
+  benchmark_code: "000300.SH"
+
+strategies:
+  etf_momentum_epo_rotation:
+    commission: 0.0002
+    slippage_perc: 0.0
+    target_percent: 0.98
+    cost_buffer: 0.003
+    etf_pool:
+      - "518880.XSHG"
+      - "159985.XSHE"
+      - "513100.XSHG"
+      - "510300.XSHG"
+      - "159915.XSHE"
+      - "159992.XSHE"
+      - "515700.XSHG"
+      - "510150.XSHG"
+      - "515790.XSHG"
+      - "515880.XSHG"
+      - "512720.XSHG"
+      - "512660.XSHG"
+      - "159740.XSHE"
+    m_days: 34
+    stock_num: 3
+    epo_lookback: 1200
+    lambda_: 10
+    w: 0.2
+    min_score: 0.0
+
+visualization:
+  output_dir: "./results"
+  enable_charts: true

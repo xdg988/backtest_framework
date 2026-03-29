@@ -1,12 +1,4 @@
-"""
-ETF Momentum Rotation with EPO-style weight selection.
-
-Adapted from JoinQuant strategy idea in
-`17多品种ETF动量轮动+EPO优化.txt`:
-- Rank ETFs by momentum score (annualized return * R-squared)
-- Keep top-N positive-score ETFs
-- Use anchored EPO-like optimization to pick the highest-weight target ETF
-"""
+"""ETF momentum + anchored EPO (close to source strategy behavior)."""
 
 from __future__ import annotations
 
@@ -15,15 +7,16 @@ import pandas as pd
 
 
 class ETFMomentumEPORotation:
-    """Generate daily target ETF code using momentum + EPO-like selection."""
+    """Generate monthly target weights using momentum ranking + anchored EPO."""
 
     multi_asset = True
+    sell_then_buy_recalc_cash = True
 
     def __init__(self,
                  etf_pool: list[str],
                  m_days: int = 34,
                  stock_num: int = 3,
-                 epo_lookback: int = 240,
+                 epo_lookback: int = 1200,
                  lambda_: float = 10.0,
                  w: float = 0.2,
                  min_score: float = 0.0):
@@ -54,12 +47,17 @@ class ETFMomentumEPORotation:
         r_squared = 1 - (np.sum((y - (slope * x + intercept)) ** 2) / denominator)
         return annualized_returns * r_squared
 
-    def _epo_pick(self, returns: pd.DataFrame) -> str | None:
-        # Second stage: from top-N candidates, select highest EPO implied weight.
+    @staticmethod
+    def _first_trading_day_mask(index: pd.Index) -> pd.Series:
+        months = pd.Series(index=index, data=index.to_period('M'))
+        return months != months.shift(1)
+
+    def _epo_weights(self, returns: pd.DataFrame) -> pd.Series | None:
+        # Match source strategy: anchored EPO with endogenous gamma.
         if returns.empty or returns.shape[1] == 0:
             return None
         if returns.shape[1] == 1:
-            return returns.columns[0]
+            return pd.Series([1.0], index=returns.columns)
 
         cov = returns.cov().values
         if np.any(~np.isfinite(cov)):
@@ -74,13 +72,11 @@ class ETFMomentumEPORotation:
             return None
 
         inv_diag = 1.0 / diag
-        # Anchor portfolio favors lower-variance assets.
         anchor = inv_diag / inv_diag.sum()
 
         std = np.sqrt(diag)
         corr = returns.corr().values
         identity = np.eye(corr.shape[0])
-        # Correlation shrinkage improves numerical stability.
         shrunk_corr = (1 - self.w) * corr + self.w * identity
         cov_tilde = np.diag(std) @ shrunk_corr @ np.diag(std)
 
@@ -100,17 +96,24 @@ class ETFMomentumEPORotation:
         if epo_vec.sum() <= 0:
             return None
         weights = epo_vec / epo_vec.sum()
-        return returns.columns[int(np.argmax(weights))]
+        return pd.Series(weights, index=returns.columns)
 
-    def generate_targets(self, close_panel: pd.DataFrame) -> pd.Series:
+    def generate_target_weights(self, close_panel: pd.DataFrame) -> pd.DataFrame:
         panel = close_panel.copy()
         panel = panel[[c for c in self.etf_pool if c in panel.columns]]
 
-        target = pd.Series(index=panel.index, dtype='object')
-        min_hist = max(self.m_days, self.epo_lookback)
+        weights_df = pd.DataFrame(index=panel.index, columns=panel.columns, dtype=float)
+        if panel.empty:
+            return weights_df
 
-        for idx in range(min_hist - 1, len(panel)):
-            hist = panel.iloc[idx - min_hist + 1: idx + 1]
+        month_start = self._first_trading_day_mask(panel.index)
+
+        for idx in range(self.m_days - 1, len(panel)):
+            if not bool(month_start.iloc[idx]):
+                continue
+
+            lookback = min(self.epo_lookback, idx + 1)
+            hist = panel.iloc[idx - lookback + 1: idx + 1]
             momentum_hist = hist.iloc[-self.m_days:]
 
             scores = {
@@ -124,12 +127,27 @@ class ETFMomentumEPORotation:
 
             selected = score_s.index[:max(1, self.stock_num)].tolist()
             if len(selected) == 1:
-                target.iloc[idx] = selected[0]
+                weights_df.loc[panel.index[idx], selected[0]] = 1.0
                 continue
 
             returns = hist[selected].pct_change(fill_method=None).dropna()
-            # Fallback to top momentum name if EPO cannot produce stable result.
-            picked = self._epo_pick(returns)
-            target.iloc[idx] = picked if picked is not None else selected[0]
+            weights = self._epo_weights(returns)
+            if weights is None or weights.empty:
+                weights_df.loc[panel.index[idx], selected[0]] = 1.0
+            else:
+                weights_df.loc[panel.index[idx], weights.index] = weights.values
+
+        return weights_df
+
+    def generate_targets(self, close_panel: pd.DataFrame) -> pd.Series:
+        # Compatibility fallback for environments that still read single targets.
+        weights = self.generate_target_weights(close_panel)
+        target = pd.Series(index=weights.index, dtype='object')
+        for idx in range(len(weights)):
+            row = weights.iloc[idx].dropna()
+            if row.empty:
+                target.iloc[idx] = None
+            else:
+                target.iloc[idx] = row.sort_values(ascending=False).index[0]
 
         return target

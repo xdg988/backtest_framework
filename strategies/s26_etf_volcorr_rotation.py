@@ -14,6 +14,7 @@ class ETFVolCorrRotation:
     """Daily top-1 rotation after vol filter and low-correlation selection."""
 
     multi_asset = True
+    sell_then_buy_recalc_cash = True
 
     def __init__(self,
                  etf_pool: list[str],
@@ -84,6 +85,7 @@ class ETFVolCorrRotation:
             hist = panel.iloc[idx - self.corr_lookback + 1: idx + 1]
             subset = self._min_corr_subset(hist)
             if not subset:
+                target.iloc[idx] = '__CASH__'
                 continue
 
             mom_hist = panel.loc[hist.index, subset].iloc[-self.m_days:]
@@ -93,6 +95,7 @@ class ETFVolCorrRotation:
             score_s = score_s[(score_s > self.score_min) & (score_s < self.score_max)]
             score_s = score_s.sort_values(ascending=False)
             if score_s.empty:
+                target.iloc[idx] = '__CASH__'
                 continue
             target.iloc[idx] = str(score_s.index[0])
 

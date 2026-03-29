@@ -11,6 +11,7 @@ class RotationBacktestStrategy(bt.Strategy):
         ('signal_generator', None),
         ('target_percent', 0.98),
         ('cost_buffer', 0.003),
+        ('start_date', None),
     )
 
     def __init__(self):
@@ -29,6 +30,9 @@ class RotationBacktestStrategy(bt.Strategy):
         self.last_target_weights = {}
         # Fast symbol->data lookup for order placement.
         self.data_by_name = {data._name: data for data in self.datas}
+        self.start_ts = pd.Timestamp(self.params.start_date) if self.params.start_date is not None else None
+        # Optional two-stage single-target rebalance: sell first, buy with refreshed cash.
+        self.deferred_target_code = None
 
     def _build_close_panel(self) -> pd.DataFrame:
         # Build aligned close matrix required by signal generators.
@@ -72,7 +76,15 @@ class RotationBacktestStrategy(bt.Strategy):
 
         dt = self.datas[0].datetime.date(0)
         ts = pd.Timestamp(dt)
+
+        if self.start_ts is not None and ts < self.start_ts:
+            return
+
         target_code = self.target_series.get(ts, None) if self.target_series is not None else None
+        cash_dates = getattr(self.params.signal_generator, 'cash_dates', set())
+        force_cash = ts in cash_dates if cash_dates is not None else False
+        use_sell_then_buy = bool(getattr(self.params.signal_generator, 'sell_then_buy_recalc_cash', False))
+        use_sell_first_same_bar = bool(getattr(self.params.signal_generator, 'sell_first_same_bar', False))
 
         raw_weights = None
         if self.use_weight_targets and self.target_weights is not None and ts in self.target_weights.index:
@@ -155,29 +167,57 @@ class RotationBacktestStrategy(bt.Strategy):
             return
 
         if target_code is None or target_code not in self.data_by_name:
+            self.deferred_target_code = None
+            if force_cash or (isinstance(target_code, str) and target_code == '__CASH__'):
+                for data in self.datas:
+                    pos = self.getposition(data)
+                    if pos.size > 0:
+                        order = self.order_target_size(data=data, target=0)
+                        if order is not None:
+                            self.pending_orders.append(order)
             return
 
         # Close non-target positions.
+        submitted_sell = False
+        planned_sell_value = 0.0
         for data in self.datas:
             pos = self.getposition(data)
             if pos.size > 0 and data._name != target_code:
+                planned_sell_value += float(pos.size) * float(data.close[0])
                 order = self.order_target_size(data=data, target=0)
                 if order is not None:
                     self.pending_orders.append(order)
+                    submitted_sell = True
 
-        target_data = self.data_by_name[target_code]
+        if submitted_sell and use_sell_then_buy:
+            self.deferred_target_code = target_code
+            return
+
+        buy_target_code = self.deferred_target_code if self.deferred_target_code is not None else target_code
+        if buy_target_code not in self.data_by_name:
+            self.deferred_target_code = None
+            return
+
+        target_data = self.data_by_name[buy_target_code]
         target_pos = self.getposition(target_data)
         if target_pos.size <= 0:
             # Use available cash to open target position with a small reserve for fees/slippage.
             target_percent = max(0.0, min(1.0, float(self.params.target_percent)))
             cost_buffer = max(0.0, min(0.05, float(self.params.cost_buffer)))
             available_cash = float(self.broker.getcash())
-            target_value = available_cash * target_percent * (1.0 - cost_buffer)
+            if use_sell_first_same_bar and submitted_sell:
+                cash_pool = available_cash + planned_sell_value
+                target_value = cash_pool * target_percent * (1.0 - cost_buffer)
+            else:
+                target_value = available_cash * target_percent * (1.0 - cost_buffer)
             if target_value <= 0:
                 return
             order = self.order_target_value(data=target_data, target=target_value)
             if order is not None:
                 self.pending_orders.append(order)
+                self.deferred_target_code = None
+        else:
+            self.deferred_target_code = None
 
     def notify_order(self, order):
         # Ignore transient states; keep waiting for final status.

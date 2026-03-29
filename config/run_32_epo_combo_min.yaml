@@ -3,8 +3,8 @@ backtest:
   commission: 0.0005
   cost_buffer: 0.003
   default_cash: 100000
-  default_end: '20251231'
-  default_start: '20210101'
+  default_end: '20240501'
+  default_start: '20200601'
   default_strategy: ETFEpoLowCorrCombo
   default_ts_code: 000001.SZ
   slippage_perc: 0.002
@@ -16,7 +16,7 @@ data:
 strategies:
   etf_epo_lowcorr_combo:
     commission: 0.0002
-    cost_buffer: 0.003
+    cost_buffer: 0.005
     etf_pool:
     - 159985.XSHE
     - 518800.XSHG
@@ -30,10 +30,11 @@ strategies:
     - 510230.XSHG
     lambda_: 10.0
     lookback: 250
-    min_history: 200
+    min_history: 30
+    min_listing_days: 30
     shrink_w: 0.6
     slippage_perc: 0.002
-    target_percent: 0.98
+    target_percent: 0.97
 visualization:
   enable_charts: true
   output_dir: ./results
