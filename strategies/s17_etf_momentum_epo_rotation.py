@@ -10,7 +10,8 @@ class ETFMomentumEPORotation:
     """Generate monthly target weights using momentum ranking + anchored EPO."""
 
     multi_asset = True
-    sell_then_buy_recalc_cash = True
+    sell_then_buy_recalc_cash = False
+    sell_first_same_bar = True
 
     def __init__(self,
                  etf_pool: list[str],
