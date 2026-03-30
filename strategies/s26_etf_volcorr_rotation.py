@@ -14,7 +14,6 @@ class ETFVolCorrRotation:
     """Daily top-1 rotation after vol filter and low-correlation selection."""
 
     multi_asset = True
-    sell_then_buy_recalc_cash = True
 
     def __init__(self,
                  etf_pool: list[str],

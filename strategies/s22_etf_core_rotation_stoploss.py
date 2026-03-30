@@ -14,7 +14,6 @@ class ETFCoreRotationStoploss:
     """Daily top-1 momentum rotation with hold/re-entry filters."""
 
     multi_asset = True
-    sell_then_buy_recalc_cash = False
     sell_first_same_bar = True
 
     def __init__(self,

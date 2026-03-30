@@ -17,6 +17,7 @@ class ETFMAMomentumRotation:
     """Daily top-N ETF rotation with MA and momentum-range filter."""
 
     multi_asset = True
+    sell_first_same_bar = True
 
     def __init__(
         self,

@@ -7,6 +7,7 @@ import argparse
 
 from data_loader.data_loader import fetch_daily_multiple, fetch_benchmark_series, normalize_ts_code
 from backtest.rotation_strategy import RotationBacktestStrategy
+from backtest.weight_rotation_strategy import WeightRotationBacktestStrategy
 from backtest.sell_first_broker import SellFirstBackBroker
 from strategies import (
     ETFLinearMomentumRotation,
@@ -118,8 +119,14 @@ def run(start: str,
         datafeed = bt.feeds.PandasData(dataname=df_item)
         cerebro.adddata(datafeed, name=code)
 
+    execution_strategy_class = (
+        WeightRotationBacktestStrategy
+        if hasattr(siggen, 'generate_target_weights')
+        else RotationBacktestStrategy
+    )
+
     cerebro.addstrategy(
-        RotationBacktestStrategy,
+        execution_strategy_class,
         signal_generator=siggen,
         target_percent=target_percent,
         cost_buffer=cost_buffer,

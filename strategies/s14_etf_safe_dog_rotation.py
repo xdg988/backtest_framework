@@ -18,7 +18,6 @@ class ETFSafeDogRotation:
     """Generate daily target ETF code using safe-bounded weighted momentum."""
 
     multi_asset = True
-    sell_then_buy_recalc_cash = False
     sell_first_same_bar = True
 
     def __init__(self,

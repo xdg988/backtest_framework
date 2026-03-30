@@ -3,8 +3,8 @@ backtest:
   commission: 0.0005
   cost_buffer: 0.003
   default_cash: 100000
-  default_end: '20230609'
-  default_start: '20140101'
+  default_end: '20240725'
+  default_start: '20150101'
   default_strategy: ETFSafeDogRotation
   default_ts_code: 000001.SZ
   slippage_perc: 0.002
