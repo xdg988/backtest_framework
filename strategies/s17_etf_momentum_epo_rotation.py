@@ -106,13 +106,24 @@ class ETFMomentumEPORotation:
             return weights_df
 
         month_start = self._first_trading_day_mask(panel.index)
+        first_valid_by_code = panel.apply(lambda s: s.first_valid_index())
 
         for idx in range(self.m_days - 1, len(panel)):
             if not bool(month_start.iloc[idx]):
                 continue
 
+            dt = panel.index[idx]
+            active_codes = [
+                code for code in panel.columns
+                if pd.notna(first_valid_by_code[code]) and first_valid_by_code[code] <= dt
+            ]
+            if not active_codes:
+                continue
+
             lookback = min(self.epo_lookback, idx + 1)
-            hist = panel.iloc[idx - lookback + 1: idx + 1]
+            hist = panel.iloc[idx - lookback + 1: idx + 1][active_codes]
+            if hist.empty:
+                continue
             momentum_hist = hist.iloc[-self.m_days:]
 
             scores = {

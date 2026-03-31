@@ -47,7 +47,7 @@ class WeightRotationBacktestStrategy(bt.Strategy):
             return 0.0
         return (float(pos.size) * price) / value
 
-    def next(self):
+    def _run_on_bar(self):
         if self._has_pending_order():
             return
 
@@ -67,7 +67,7 @@ class WeightRotationBacktestStrategy(bt.Strategy):
 
         holding_codes = [
             data._name for data in self.datas
-            if self.getposition(data).size > 0
+            if len(data) > 0 and self.getposition(data).size > 0
         ]
 
         target_display = ''
@@ -112,6 +112,8 @@ class WeightRotationBacktestStrategy(bt.Strategy):
 
         needs_reduce = []
         for data in self.datas:
+            if len(data) == 0:
+                continue
             curr_pct = self._current_position_percent(data)
             tgt_pct = float(scaled.get(data._name, 0.0))
             if curr_pct > tgt_pct + 1e-4:
@@ -125,6 +127,8 @@ class WeightRotationBacktestStrategy(bt.Strategy):
 
         reduced_codes = {data._name for data, _ in needs_reduce}
         for data in self.datas:
+            if len(data) == 0:
+                continue
             if data._name in reduced_codes:
                 continue
             target_pct = float(scaled.get(data._name, 0.0))
@@ -133,6 +137,15 @@ class WeightRotationBacktestStrategy(bt.Strategy):
                 self.pending_orders.append(order)
 
         self.last_target_weights = scaled
+
+    def prenext(self):
+        self._run_on_bar()
+
+    def nextstart(self):
+        self._run_on_bar()
+
+    def next(self):
+        self._run_on_bar()
 
     def notify_order(self, order):
         if order.status in [order.Submitted, order.Accepted]:
