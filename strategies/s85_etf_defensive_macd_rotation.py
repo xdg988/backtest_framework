@@ -9,7 +9,6 @@ class ETFDefensiveMACDRotation:
     """Monthly defensive ETF allocation from the original 85 strategy logic."""
 
     multi_asset = True
-    sell_first_same_bar = True
 
     @staticmethod
     def _norm(code: str) -> str:

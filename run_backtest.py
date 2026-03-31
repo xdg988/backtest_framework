@@ -55,8 +55,6 @@ def run(start: str,
         slippage_perc: float = 0.001,
     target_percent: float = 0.98,
     cost_buffer: float = 0.003,
-        sell_first_same_bar: bool = False,
-        broker_checksubmit: bool = None,
         benchmark_code: str = '000300.SH',
         enable_charts: bool = True,
         output_dir: str = './results') -> tuple:
@@ -85,14 +83,9 @@ def run(start: str,
         raise ValueError('This framework now supports multi-asset rotation strategies only.')
 
     cerebro = bt.Cerebro()
-    if sell_first_same_bar:
-        cerebro.setbroker(SellFirstBackBroker())
-
-    if broker_checksubmit is not None:
-        cerebro.broker.set_checksubmit(bool(broker_checksubmit))
-    elif sell_first_same_bar:
-        # In sell-first same-bar mode, skip submit-time cash blocking and rely on execution ordering.
-        cerebro.broker.set_checksubmit(False)
+    cerebro.setbroker(SellFirstBackBroker())
+    # Default execution mode: same-bar sell-first, so skip submit-time cash blocking.
+    cerebro.broker.set_checksubmit(False)
 
     cerebro.broker.setcash(cash)
     if commission is not None and commission >= 0:
@@ -196,8 +189,6 @@ if __name__ == '__main__':
     commission = config.get('backtest.commission', 0.0005)
     target_percent = config.get('backtest.target_percent', 0.98)
     cost_buffer = config.get('backtest.cost_buffer', 0.003)
-    backtest_sell_first_same_bar = config.get('backtest.sell_first_same_bar', False)
-    backtest_broker_checksubmit = config.get('backtest.broker_checksubmit', None)
     benchmark_code = config.get('backtest.benchmark_code', '000300.SH')
     enable_charts = config.get('visualization.enable_charts', True)
     output_dir = config.get('visualization.output_dir', './results')
@@ -249,11 +240,6 @@ if __name__ == '__main__':
     strategy_commission = strategy_cfg.pop('commission', commission)
     strategy_target_percent = strategy_cfg.pop('target_percent', target_percent)
     strategy_cost_buffer = strategy_cfg.pop('cost_buffer', cost_buffer)
-    strategy_sell_first_same_bar = strategy_cfg.pop(
-        'sell_first_same_bar',
-        getattr(strategy_class, 'sell_first_same_bar', backtest_sell_first_same_bar)
-    )
-    strategy_broker_checksubmit = strategy_cfg.pop('broker_checksubmit', backtest_broker_checksubmit)
     signal_kwargs = strategy_cfg
 
     # Run backtest
@@ -268,8 +254,6 @@ if __name__ == '__main__':
         slippage_perc=strategy_slippage,
         target_percent=strategy_target_percent,
         cost_buffer=strategy_cost_buffer,
-        sell_first_same_bar=strategy_sell_first_same_bar,
-        broker_checksubmit=strategy_broker_checksubmit,
         benchmark_code=benchmark_code,
         enable_charts=enable_charts,
         output_dir=output_dir,

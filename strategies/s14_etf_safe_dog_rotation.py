@@ -18,7 +18,6 @@ class ETFSafeDogRotation:
     """Generate daily target ETF code using safe-bounded weighted momentum."""
 
     multi_asset = True
-    sell_first_same_bar = True
 
     def __init__(self,
                  etf_pool: list[str],
@@ -64,6 +63,7 @@ class ETFSafeDogRotation:
         panel = panel[[c for c in self.etf_pool if c in panel.columns]]
 
         target = pd.Series(index=panel.index, dtype='object')
+        self.cash_dates: set[pd.Timestamp] = set()
 
         for idx in range(self.m_days - 1, len(panel)):
             hist = panel.iloc[idx - self.m_days + 1: idx + 1]
@@ -72,7 +72,8 @@ class ETFSafeDogRotation:
             # "Safe" regime band: avoid too weak or overly extreme signals.
             score_s = score_s[(score_s > self.score_min) & (score_s <= self.score_max)]
             if score_s.empty:
-                target.iloc[idx] = '__CASH__'
+                self.cash_dates.add(panel.index[idx])
+                target.iloc[idx] = None
                 continue
             selected = score_s.index[:max(1, self.top_n)]
             target.iloc[idx] = selected[0]

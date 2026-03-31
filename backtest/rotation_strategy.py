@@ -60,7 +60,6 @@ class RotationBacktestStrategy(bt.Strategy):
         target_code = self.target_series.get(ts, None) if self.target_series is not None else None
         cash_dates = getattr(self.params.signal_generator, 'cash_dates', set())
         force_cash = ts in cash_dates if cash_dates is not None else False
-        use_sell_first_same_bar = bool(getattr(self.params.signal_generator, 'sell_first_same_bar', False))
 
         holding_codes = [
             data._name for data in self.datas
@@ -110,7 +109,7 @@ class RotationBacktestStrategy(bt.Strategy):
             target_percent = max(0.0, min(1.0, float(self.params.target_percent)))
             cost_buffer = max(0.0, min(0.05, float(self.params.cost_buffer)))
             available_cash = float(self.broker.getcash())
-            if use_sell_first_same_bar and submitted_sell:
+            if submitted_sell:
                 cash_pool = available_cash + planned_sell_value
                 target_value = cash_pool * target_percent * (1.0 - cost_buffer)
             else:

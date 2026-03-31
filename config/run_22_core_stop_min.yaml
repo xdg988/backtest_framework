@@ -1,6 +1,5 @@
 backtest:
   benchmark_code: 000300.SH
-  broker_checksubmit: false
   commission: 0.0005
   cost_buffer: 0.003
   default_cash: 100000
@@ -8,7 +7,6 @@ backtest:
   default_start: '20180101'
   default_strategy: ETFCoreRotationStoploss
   default_ts_code: 000001.SZ
-  sell_first_same_bar: true
   slippage_perc: 0.002
   target_percent: 0.98
 data:

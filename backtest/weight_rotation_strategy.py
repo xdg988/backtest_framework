@@ -110,8 +110,6 @@ class WeightRotationBacktestStrategy(bt.Strategy):
         if not changed:
             return
 
-        use_sell_first_same_bar = bool(getattr(self.params.signal_generator, 'sell_first_same_bar', False))
-
         needs_reduce = []
         for data in self.datas:
             curr_pct = self._current_position_percent(data)
@@ -119,14 +117,7 @@ class WeightRotationBacktestStrategy(bt.Strategy):
             if curr_pct > tgt_pct + 1e-4:
                 needs_reduce.append((data, tgt_pct))
 
-        if needs_reduce and not use_sell_first_same_bar:
-            for data, tgt_pct in needs_reduce:
-                order = self.order_target_percent(data=data, target=tgt_pct)
-                if order is not None:
-                    self.pending_orders.append(order)
-            return
-
-        if use_sell_first_same_bar and needs_reduce:
+        if needs_reduce:
             for data, tgt_pct in needs_reduce:
                 order = self.order_target_percent(data=data, target=tgt_pct)
                 if order is not None:
@@ -134,7 +125,7 @@ class WeightRotationBacktestStrategy(bt.Strategy):
 
         reduced_codes = {data._name for data, _ in needs_reduce}
         for data in self.datas:
-            if use_sell_first_same_bar and data._name in reduced_codes:
+            if data._name in reduced_codes:
                 continue
             target_pct = float(scaled.get(data._name, 0.0))
             order = self.order_target_percent(data=data, target=target_pct)

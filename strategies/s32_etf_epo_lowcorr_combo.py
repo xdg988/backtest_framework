@@ -14,7 +14,6 @@ class ETFEpoLowCorrCombo:
     """Monthly EPO weights over ETF pool."""
 
     multi_asset = True
-    sell_first_same_bar = True
 
     def __init__(self,
                  etf_pool: list[str],

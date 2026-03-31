@@ -9,7 +9,6 @@ class ETFFixedIncomePlusRebalance:
     """Daily drift-check rebalancing for a fixed ETF weight basket."""
 
     multi_asset = True
-    sell_first_same_bar = True
 
     @staticmethod
     def _norm(code: str) -> str:
