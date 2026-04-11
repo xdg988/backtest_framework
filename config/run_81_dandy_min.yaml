@@ -1,0 +1,36 @@
+data:
+  token: "xx"
+
+backtest:
+  default_strategy: "ETFDandyRotation"
+  default_cash: 100000
+  default_start: "20200101"
+  default_end: "20240203"
+  benchmark_code: "000300.SH"
+
+strategies:
+  etf_dandy_rotation:
+    commission: 0.0001
+    slippage_perc: 0.001
+    target_percent: 0.98
+    cost_buffer: 0.003
+    etf_pool:
+      - "510500.XSHG"
+      - "510300.XSHG"
+      - "510050.XSHG"
+      - "159949.XSHE"
+      - "513100.XSHG"
+      - "513500.XSHG"
+      - "159920.XSHE"
+      - "513520.XSHG"
+      - "513030.XSHG"
+      - "162411.XSHE"
+      - "159985.XSHE"
+    history_window: 30
+    n_days: 21
+    buy_threshold: 1.001
+    sell_threshold: 0.999
+
+visualization:
+  output_dir: "./results"
+  enable_charts: true

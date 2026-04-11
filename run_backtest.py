@@ -95,6 +95,8 @@ def run(start: str,
 
     signal_kwargs = signal_kwargs or {}
     siggen = strategy_class(**signal_kwargs)
+    if getattr(siggen, 'execute_on_close', False):
+        cerebro.broker.set_coc(True)
     pool_codes = [normalize_ts_code(code) for code in siggen.etf_pool]
     siggen.etf_pool = pool_codes
     warmup_bars = _infer_warmup_bars(siggen)

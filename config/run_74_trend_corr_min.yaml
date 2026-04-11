@@ -4,13 +4,13 @@ data:
 backtest:
   default_strategy: "ETFTrendCorrRotation"
   default_cash: 100000
-  default_start: "20210101"
-  default_end: "20251231"
+  default_start: "20170101"
+  default_end: "20240816"
   benchmark_code: "000300.SH"
 
 strategies:
   etf_trend_corr_rotation:
-    commission: 0.0005
+    commission: 0.0003
     slippage_perc: 0.002
     target_percent: 0.98
     cost_buffer: 0.003
