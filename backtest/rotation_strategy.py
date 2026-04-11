@@ -26,6 +26,7 @@ class RotationBacktestStrategy(bt.Strategy):
         # Fast symbol->data lookup for order placement.
         self.data_by_name = {data._name: data for data in self.datas}
         self.start_ts = pd.Timestamp(self.params.start_date) if self.params.start_date is not None else None
+        self.last_processed_ts = None
 
     def _build_close_panel(self) -> pd.DataFrame:
         # Build aligned close matrix required by signal generators.
@@ -41,7 +42,7 @@ class RotationBacktestStrategy(bt.Strategy):
         self.pending_orders = [o for o in self.pending_orders if o.alive()]
         return len(self.pending_orders) > 0
 
-    def next(self):
+    def _run_on_bar(self):
         # Wait until all previous orders are settled before issuing new rebalance orders.
         if self._has_pending_order():
             return
@@ -51,11 +52,16 @@ class RotationBacktestStrategy(bt.Strategy):
             close_panel = self._build_close_panel()
             self.target_series = self.params.signal_generator.generate_targets(close_panel)
 
-        dt = self.datas[0].datetime.date(0)
+        dt = self.datetime.date(0)
         ts = pd.Timestamp(dt)
 
         if self.start_ts is not None and ts < self.start_ts:
             return
+
+        # Skip processing if the current timestamp has already been processed.
+        if self.last_processed_ts is not None and ts == self.last_processed_ts:
+            return
+        self.last_processed_ts = ts
 
         target_code = self.target_series.get(ts, None) if self.target_series is not None else None
         cash_dates = getattr(self.params.signal_generator, 'cash_dates', set())
@@ -79,6 +85,8 @@ class RotationBacktestStrategy(bt.Strategy):
         if target_code is None or target_code not in self.data_by_name:
             if force_cash or (isinstance(target_code, str) and target_code == '__CASH__'):
                 for data in self.datas:
+                    if len(data) == 0:
+                        continue
                     pos = self.getposition(data)
                     if pos.size > 0:
                         order = self.order_target_size(data=data, target=0)
@@ -90,6 +98,8 @@ class RotationBacktestStrategy(bt.Strategy):
         submitted_sell = False
         planned_sell_value = 0.0
         for data in self.datas:
+            if len(data) == 0:
+                continue
             pos = self.getposition(data)
             if pos.size > 0 and data._name != target_code:
                 planned_sell_value += float(pos.size) * float(data.close[0])
@@ -120,6 +130,16 @@ class RotationBacktestStrategy(bt.Strategy):
             if order is not None:
                 self.pending_orders.append(order)
 
+    # The following methods are Backtrader lifecycle hooks and order notifications.
+    def prenext(self):
+        self._run_on_bar()
+
+    def nextstart(self):
+        self._run_on_bar()
+
+    def next(self):
+        self._run_on_bar()
+
     def notify_order(self, order):
         # Ignore transient states; keep waiting for final status.
         if order.status in [order.Submitted, order.Accepted]:
@@ -133,7 +153,7 @@ class RotationBacktestStrategy(bt.Strategy):
             action = 'BUY' if size > 0 else 'SELL'
             # Persist a compact trade log for reporting.
             self.trades.append({
-                'date': self.datas[0].datetime.date(0).isoformat(),
+                'date': self.datetime.date(0).isoformat(),
                 'action': action,
                 'symbol': order.data._name,
                 'price': float(order.executed.price),

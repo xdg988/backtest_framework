@@ -22,6 +22,7 @@ class WeightRotationBacktestStrategy(bt.Strategy):
         self.last_target_weights = {}
         self.data_by_name = {data._name: data for data in self.datas}
         self.start_ts = pd.Timestamp(self.params.start_date) if self.params.start_date is not None else None
+        self.last_processed_ts = None
 
     def _build_close_panel(self) -> pd.DataFrame:
         panel = {}
@@ -55,11 +56,16 @@ class WeightRotationBacktestStrategy(bt.Strategy):
             close_panel = self._build_close_panel()
             self.target_weights = self.params.signal_generator.generate_target_weights(close_panel)
 
-        dt = self.datas[0].datetime.date(0)
+        dt = self.datetime.date(0)
         ts = pd.Timestamp(dt)
 
         if self.start_ts is not None and ts < self.start_ts:
             return
+
+        # Skip processing if the current timestamp has already been processed.
+        if self.last_processed_ts is not None and ts == self.last_processed_ts:
+            return
+        self.last_processed_ts = ts
 
         raw_weights = None
         if self.target_weights is not None and ts in self.target_weights.index:
@@ -110,6 +116,7 @@ class WeightRotationBacktestStrategy(bt.Strategy):
         if not changed:
             return
 
+        # First process reductions to free up cash, then process increases. This can help reduce unnecessary round-trips in some cases.
         needs_reduce = []
         for data in self.datas:
             if len(data) == 0:
@@ -138,6 +145,7 @@ class WeightRotationBacktestStrategy(bt.Strategy):
 
         self.last_target_weights = scaled
 
+    # The following methods are Backtrader lifecycle hooks and order notifications.
     def prenext(self):
         self._run_on_bar()
 
@@ -158,7 +166,7 @@ class WeightRotationBacktestStrategy(bt.Strategy):
             size = float(order.executed.size)
             action = 'BUY' if size > 0 else 'SELL'
             self.trades.append({
-                'date': self.datas[0].datetime.date(0).isoformat(),
+                'date': self.datetime.date(0).isoformat(),
                 'action': action,
                 'symbol': order.data._name,
                 'price': float(order.executed.price),

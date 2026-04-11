@@ -44,6 +44,38 @@ def _standardize_daily_df(df: pd.DataFrame, ts_code: str) -> pd.DataFrame:
     return df
 
 
+def _apply_fund_adjustment(pro, df: pd.DataFrame, ts_code: str, start_date: str, end_date: str) -> pd.DataFrame:
+    """Apply forward-adjusted prices for funds/ETFs using tushare fund_adj factors.
+
+    Keep the latest price unchanged by normalizing adj_factor to the last available value.
+    """
+    if df.empty:
+        return df
+
+    try:
+        adj = pro.fund_adj(ts_code=ts_code, start_date=start_date, end_date=end_date)
+    except Exception:
+        return df
+
+    if adj is None or adj.empty or 'trade_date' not in adj.columns or 'adj_factor' not in adj.columns:
+        return df
+
+    adj = adj[['trade_date', 'adj_factor']].copy()
+    adj['trade_date'] = pd.to_datetime(adj['trade_date'], format='%Y%m%d')
+    adj = adj.sort_values('trade_date').set_index('trade_date')
+    factors = adj['adj_factor'].reindex(df.index).ffill().bfill()
+
+    if factors.empty or not pd.notna(factors.iloc[-1]) or float(factors.iloc[-1]) == 0:
+        return df
+
+    norm = factors / float(factors.iloc[-1])
+    for col in ('open', 'high', 'low', 'close'):
+        if col in df.columns:
+            df[col] = df[col] * norm
+
+    return df
+
+
 def fetch_daily(ts_code: str, start_date: str, end_date: str, token: str = None) -> pd.DataFrame:
     """Fetch daily bar data for a given security code.
 
@@ -67,13 +99,18 @@ def fetch_daily(ts_code: str, start_date: str, end_date: str, token: str = None)
     pro = get_pro_api(token)
 
     # ETF/fund first, then fallback to stock daily.
+    is_fund_data = True
     df = pro.fund_daily(ts_code=code, start_date=start_date, end_date=end_date)
     if df.empty:
+        is_fund_data = False
         df = pro.daily(ts_code=code, start_date=start_date, end_date=end_date)
     if df.empty:
         raise ValueError(f"No data returned for {code} {start_date}-{end_date}")
 
-    return _standardize_daily_df(df, code)
+    out = _standardize_daily_df(df, code)
+    if is_fund_data:
+        out = _apply_fund_adjustment(pro, out, code, start_date, end_date)
+    return out
 
 
 def fetch_daily_multiple(ts_codes: List[str], start_date: str, end_date: str, token: str = None) -> Dict[str, pd.DataFrame]:
@@ -90,13 +127,18 @@ def fetch_daily_multiple(ts_codes: List[str], start_date: str, end_date: str, to
     for raw_code in ts_codes:
         code = normalize_ts_code(raw_code)
 
+        is_fund_data = True
         df = pro.fund_daily(ts_code=code, start_date=start_date, end_date=end_date)
         if df.empty:
+            is_fund_data = False
             df = pro.daily(ts_code=code, start_date=start_date, end_date=end_date)
         if df.empty:
             continue
 
-        data_map[code] = _standardize_daily_df(df, code)
+        out = _standardize_daily_df(df, code)
+        if is_fund_data:
+            out = _apply_fund_adjustment(pro, out, code, start_date, end_date)
+        data_map[code] = out
 
     if not data_map:
         raise ValueError(f"No data returned for any symbol in pool ({len(ts_codes)} symbols)")
