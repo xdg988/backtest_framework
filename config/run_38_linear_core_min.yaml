@@ -4,8 +4,8 @@ data:
 backtest:
   default_strategy: "ETFLinearMomentumRotation"
   default_cash: 100000
-  default_start: "20210101"
-  default_end: "20251231"
+  default_start: "20140101"
+  default_end: "20230605"
   benchmark_code: "000300.SH"
 
 strategies:

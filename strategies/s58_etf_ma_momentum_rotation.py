@@ -17,11 +17,13 @@ class ETFMAMomentumRotation:
     """Daily top-N ETF rotation with MA and momentum-range filter."""
 
     multi_asset = True
+    fill_vacancy_only = True
 
     def __init__(
         self,
         etf_pool: list[str],
         etf_num: int = 2,
+        change_day: int = 1,
         rank_num: int = 4,
         longdays: int = 20,
         shortdays: int = 5,
@@ -32,6 +34,7 @@ class ETFMAMomentumRotation:
             raise ValueError("etf_pool cannot be empty for ETFMAMomentumRotation")
         self.etf_pool = etf_pool
         self.etf_num = int(etf_num)
+        self.change_day = max(1, int(change_day))
         self.rank_num = int(rank_num)
         self.longdays = int(longdays)
         self.shortdays = int(shortdays)
@@ -61,15 +64,28 @@ class ETFMAMomentumRotation:
         return df.sort_values("inc", ascending=False)
 
     def _select_holdings(self, panel: pd.DataFrame) -> list[list[str]]:
-        """Select holdings per day for true top-N simultaneous holding."""
+        """Select holdings per day for true top-N simultaneous holding.
+
+        Rebalance only every ``change_day`` bars and never re-buy symbols sold
+        on the same rebalance day.
+        """
         daily_holdings: list[list[str]] = [[] for _ in range(len(panel))]
         holdings: list[str] = []
+        rebalance_clock = 0
 
-        for idx in range(self.longdays - 1, len(panel)):
-            hist = panel.iloc[: idx + 1]
+        # Match JQ attribute_history behavior in run_daily trade: use prior-day
+        # bars only for today's signal, i.e. exclude current bar from window.
+        for idx in range(self.longdays, len(panel)):
+            if rebalance_clock % self.change_day != 0:
+                daily_holdings[idx] = holdings.copy()
+                rebalance_clock += 1
+                continue
+
+            hist = panel.iloc[:idx]
             metrics = self._calc_metrics(hist)
             if metrics.empty:
                 daily_holdings[idx] = holdings.copy()
+                rebalance_clock += 1
                 continue
 
             rank_etf = list(metrics.index)[: self.rank_num]
@@ -83,19 +99,24 @@ class ETFMAMomentumRotation:
             if not holdings:
                 holdings = buy_list[: self.etf_num]
                 daily_holdings[idx] = holdings.copy()
+                rebalance_clock += 1
                 continue
 
-            kept: list[str] = []
+            sell_set: set[str] = set()
             for code in holdings:
                 if code not in metrics.index:
+                    sell_set.add(code)
                     continue
                 inc = float(metrics.loc[code, "inc"])
-                keep = (code in rank_etf) and (inc <= self.max_inc)
-                if keep:
-                    kept.append(code)
+                if (code not in rank_etf) or (inc > self.max_inc):
+                    sell_set.add(code)
+
+            kept: list[str] = [code for code in holdings if code not in sell_set]
 
             for code in buy_list:
                 if code in kept:
+                    continue
+                if code in sell_set:
                     continue
                 if len(kept) >= self.etf_num:
                     break
@@ -103,6 +124,7 @@ class ETFMAMomentumRotation:
 
             holdings = kept
             daily_holdings[idx] = holdings.copy()
+            rebalance_clock += 1
 
         return daily_holdings
 
@@ -112,12 +134,17 @@ class ETFMAMomentumRotation:
         panel = panel[[c for c in self.etf_pool if c in panel.columns]]
 
         weights = pd.DataFrame(index=panel.index, columns=panel.columns, dtype=float)
+        self.cash_dates: set[pd.Timestamp] = set()
+        self.target_lists_by_date: dict[pd.Timestamp, list[str]] = {}
         if panel.empty:
             return weights
 
         daily_holdings = self._select_holdings(panel)
         for idx, holdings in enumerate(daily_holdings):
+            self.target_lists_by_date[panel.index[idx]] = holdings.copy()
             if not holdings:
+                if idx >= self.longdays - 1:
+                    self.cash_dates.add(panel.index[idx])
                 continue
             w = 1.0 / len(holdings)
             for code in holdings:

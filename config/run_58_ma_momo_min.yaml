@@ -6,14 +6,14 @@ backtest:
   default_cash: 100000
   default_start: "20210412"
   default_end: "20240625"
-  benchmark_code: "000300.SH"
+  benchmark_code: "513100.XSHG"
 
 strategies:
   etf_ma_momentum_rotation:
-    commission: 0.0003
+    commission: 0.0002
     slippage_perc: 0.0
-    target_percent: 0.92
-    cost_buffer: 0.015
+    target_percent: 0.98
+    cost_buffer: 0.003
     etf_pool:
       - "516510.XSHG"
       - "159985.XSHE"
@@ -33,6 +33,7 @@ strategies:
       - "513100.XSHG"
       - "159995.XSHE"
     etf_num: 2
+    change_day: 1
     rank_num: 4
     longdays: 20
     shortdays: 5

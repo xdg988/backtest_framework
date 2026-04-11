@@ -29,9 +29,9 @@ class ETFLinearMomentumRotation:
         if not etf_pool:
             raise ValueError("etf_pool cannot be empty for ETFLinearMomentumRotation")
         self.etf_pool = etf_pool
-        self.m_days = m_days
-        self.top_n = top_n
-        self.min_score = min_score
+        self.m_days = int(m_days)
+        self.top_n = int(top_n)
+        self.min_score = float(min_score) if min_score is not None else None
 
     def _momentum_score(self, window: pd.Series) -> float:
         # Weighted linear fit on log-prices to favor recent observations.
@@ -50,7 +50,8 @@ class ETFLinearMomentumRotation:
         fitted = slope * x + intercept
         residuals = y - fitted
         weighted_residuals = weights * residuals ** 2
-        denominator = np.sum(weights * (y - np.average(y, weights=weights)) ** 2)
+        # Keep denominator consistent with original source implementation.
+        denominator = np.sum(weights * (y - np.mean(y)) ** 2)
         if denominator == 0:
             return np.nan
         r_squared = 1 - (np.sum(weighted_residuals) / denominator)
@@ -70,6 +71,9 @@ class ETFLinearMomentumRotation:
         panel = panel[[c for c in self.etf_pool if c in panel.columns]]
 
         target = pd.Series(index=panel.index, dtype='object')
+        self.cash_dates: set[pd.Timestamp] = set()
+        if panel.empty:
+            return target
 
         for idx in range(self.m_days - 1, len(panel)):
             hist = panel.iloc[idx - self.m_days + 1: idx + 1]
@@ -79,6 +83,8 @@ class ETFLinearMomentumRotation:
             if self.min_score is not None:
                 score_s = score_s[score_s >= self.min_score]
             if score_s.empty:
+                self.cash_dates.add(panel.index[idx])
+                target.iloc[idx] = None
                 continue
             selected = score_s.index[:max(1, self.top_n)]
             # Rotation engine in one-target mode only consumes the first code.

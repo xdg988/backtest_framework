@@ -70,6 +70,8 @@ class WeightRotationBacktestStrategy(bt.Strategy):
         raw_weights = None
         if self.target_weights is not None and ts in self.target_weights.index:
             raw_weights = self.target_weights.loc[ts]
+        cash_dates = getattr(self.params.signal_generator, 'cash_dates', set())
+        force_cash = ts in cash_dates if cash_dates is not None else False
 
         holding_codes = [
             data._name for data in self.datas
@@ -91,29 +93,86 @@ class WeightRotationBacktestStrategy(bt.Strategy):
             'target': target_display
         })
 
-        if raw_weights is None:
+        if raw_weights is None and not force_cash:
             return
 
-        target_weights = raw_weights.dropna()
-        target_weights = target_weights[target_weights > 0]
-        if target_weights.empty:
-            return
-
-        total_weight = float(target_weights.sum())
-        if total_weight <= 0:
-            return
-        target_weights = target_weights / total_weight
-
-        scaled = {
-            code: float(weight) * max(0.0, min(1.0, float(self.params.target_percent))) *
-                  (1.0 - max(0.0, min(0.05, float(self.params.cost_buffer))))
-            for code, weight in target_weights.items()
-            if code in self.data_by_name
-        }
+        scaled = {}
+        if raw_weights is not None:
+            target_weights = raw_weights.dropna()
+            target_weights = target_weights[target_weights > 0]
+            if target_weights.empty:
+                if not force_cash:
+                    return
+            else:
+                total_weight = float(target_weights.sum())
+                if total_weight <= 0:
+                    if not force_cash:
+                        return
+                else:
+                    target_weights = target_weights / total_weight
+                    scaled = {
+                        code: float(weight) * max(0.0, min(1.0, float(self.params.target_percent))) *
+                              (1.0 - max(0.0, min(0.05, float(self.params.cost_buffer))))
+                        for code, weight in target_weights.items()
+                        if code in self.data_by_name
+                    }
 
         keys = set(scaled.keys()) | set(self.last_target_weights.keys())
         changed = any(abs(float(scaled.get(k, 0.0)) - float(self.last_target_weights.get(k, 0.0))) > 1e-6 for k in keys)
         if not changed:
+            return
+
+        # for s58策略 先卖，再按空缺数量买入，不主动重平衡旧仓
+        if getattr(self.params.signal_generator, 'fill_vacancy_only', False):
+            target_ordered = []
+            target_map = getattr(self.params.signal_generator, 'target_lists_by_date', None)
+            if isinstance(target_map, dict):
+                target_ordered = [
+                    code for code in target_map.get(ts, [])
+                    if code in self.data_by_name
+                ]
+            if not target_ordered:
+                target_ordered = [code for code in scaled.keys() if code in self.data_by_name]
+
+            target_set = set(target_ordered)
+            current_holding = [
+                data._name for data in self.datas
+                if len(data) > 0 and self.getposition(data).size > 0
+            ]
+
+            planned_sell_value = 0.0
+            for data in self.datas:
+                if len(data) == 0:
+                    continue
+                pos = self.getposition(data)
+                if pos.size > 0 and data._name not in target_set:
+                    planned_sell_value += float(pos.size) * float(data.close[0])
+                    order = self.order_target_size(data=data, target=0)
+                    if order is not None:
+                        self.pending_orders.append(order)
+
+            kept_count = sum(1 for code in current_holding if code in target_set)
+            desired_count = max(0, int(getattr(self.params.signal_generator, 'etf_num', len(target_ordered))))
+            buy_slots = max(0, desired_count - kept_count)
+
+            buy_candidates = [code for code in target_ordered if code not in current_holding]
+            buy_list = buy_candidates[:buy_slots]
+            if buy_list:
+                target_percent = max(0.0, min(1.0, float(self.params.target_percent)))
+                cost_buffer = max(0.0, min(0.05, float(self.params.cost_buffer)))
+                cash_pool = (float(self.broker.getcash()) + planned_sell_value) * target_percent * (1.0 - cost_buffer)
+                per_symbol_value = cash_pool / len(buy_list)
+                for code in buy_list:
+                    data = self.data_by_name.get(code)
+                    if data is None or len(data) == 0:
+                        continue
+                    if self.getposition(data).size > 0:
+                        continue
+                    order = self.order_target_value(data=data, target=per_symbol_value)
+                    if order is not None:
+                        self.pending_orders.append(order)
+
+            self.last_target_weights = scaled
             return
 
         # First process reductions to free up cash, then process increases. This can help reduce unnecessary round-trips in some cases.
