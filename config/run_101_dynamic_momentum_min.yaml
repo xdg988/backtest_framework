@@ -1,0 +1,36 @@
+data:
+  token: "xx"
+
+backtest:
+  default_strategy: "ETFDynamicMomentumRotation"
+  default_cash: 100000
+  default_start: "20200101"
+  default_end: "20251020"
+  benchmark_code: "000300.SH"
+
+strategies:
+  etf_dynamic_momentum_rotation:
+    commission: 0.0002
+    slippage_perc: 0.001
+    target_percent: 0.98
+    cost_buffer: 0.003
+    etf_pool:
+      - "513100.XSHG"
+      - "513520.XSHG"
+      - "513030.XSHG"
+      - "518880.XSHG"
+      - "159980.XSHE"
+      - "501018.XSHG"
+      - "511090.XSHG"
+      - "512890.XSHG"
+      - "159915.XSHE"
+    m_days: 25
+    auto_day: true
+    min_days: 20
+    max_days: 60
+    top_n: 1
+    score_upper: 6.0
+
+visualization:
+  output_dir: "./results"
+  enable_charts: true

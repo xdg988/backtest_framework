@@ -11,9 +11,9 @@ from backtest.weight_rotation_strategy import WeightRotationBacktestStrategy
 from backtest.sell_first_broker import SellFirstBackBroker
 from strategies import (
     ETFLinearMomentumRotation,
-    ETFTrendCorrRotation,
     ETFMomentumEPORotation,
     ETFDandyRotation,
+    ETFDynamicMomentumRotation,
     ETFSafeDogRotation,
     ETFCoreRotationStoploss,
     ETFVolCorrRotation,
@@ -27,7 +27,7 @@ from reporting import ReportGenerator
 def _infer_warmup_bars(signal_generator) -> int:
     """Infer required pre-start history from common strategy parameters."""
     candidates = []
-    for attr in ('history_window', 'epo_lookback', 'corr_lookback', 'lookback', 'm_days', 'min_history'):
+    for attr in ('warmup_bars', 'history_window', 'epo_lookback', 'corr_lookback', 'lookback', 'm_days', 'max_days', 'min_days', 'min_history'):
         value = getattr(signal_generator, attr, None)
         if value is None:
             continue
@@ -106,6 +106,9 @@ def run(start: str,
     for code, df_item in data_map.items():
         datafeed = bt.feeds.PandasData(dataname=df_item)
         cerebro.adddata(datafeed, name=code)
+
+    if hasattr(siggen, 'set_market_data'):
+        siggen.set_market_data(data_map)
 
     execution_strategy_class = (
         WeightRotationBacktestStrategy
@@ -195,9 +198,9 @@ if __name__ == '__main__':
     # Map strategy name to class
     strategy_map = {
         'ETFLinearMomentumRotation': ETFLinearMomentumRotation,
-        'ETFTrendCorrRotation': ETFTrendCorrRotation,
         'ETFMomentumEPORotation': ETFMomentumEPORotation,
         'ETFDandyRotation': ETFDandyRotation,
+        'ETFDynamicMomentumRotation': ETFDynamicMomentumRotation,
         'ETFSafeDogRotation': ETFSafeDogRotation,
         'ETFCoreRotationStoploss': ETFCoreRotationStoploss,
         'ETFVolCorrRotation': ETFVolCorrRotation,
@@ -211,9 +214,9 @@ if __name__ == '__main__':
     # Load strategy parameters from config
     strategy_config_key_map = {
         'ETFLinearMomentumRotation': 'etf_linear_rotation',
-        'ETFTrendCorrRotation': 'etf_trend_corr_rotation',
         'ETFMomentumEPORotation': 'etf_momentum_epo_rotation',
         'ETFDandyRotation': 'etf_dandy_rotation',
+        'ETFDynamicMomentumRotation': 'etf_dynamic_momentum_rotation',
         'ETFSafeDogRotation': 'etf_safe_dog_rotation',
         'ETFCoreRotationStoploss': 'etf_core_rotation_stoploss',
         'ETFVolCorrRotation': 'etf_volcorr_rotation',
