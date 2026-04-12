@@ -17,18 +17,13 @@ from strategies import (
     ETFSafeDogRotation,
     ETFCoreRotationStoploss,
     ETFVolCorrRotation,
-    ETFEpoLowCorrCombo,
     ETFMAMomentumRotation,
-    ETFStableDogRotation,
-    ETFTrendCorrFastRotation,
-    ETFDefensiveMACDRotation,
-    ETFFixedIncomePlusRebalance,
 )
 from backtest.performance import compute_performance
 from config.config import Config
 from reporting import ReportGenerator
 
-
+# 解决问题--策略有回看窗口时，回测起点前数据不够导致信号失真/起点延后
 def _infer_warmup_bars(signal_generator) -> int:
     """Infer required pre-start history from common strategy parameters."""
     candidates = []
@@ -95,8 +90,6 @@ def run(start: str,
 
     signal_kwargs = signal_kwargs or {}
     siggen = strategy_class(**signal_kwargs)
-    if getattr(siggen, 'execute_on_close', False):
-        cerebro.broker.set_coc(True)
     pool_codes = [normalize_ts_code(code) for code in siggen.etf_pool]
     siggen.etf_pool = pool_codes
     warmup_bars = _infer_warmup_bars(siggen)
@@ -208,12 +201,7 @@ if __name__ == '__main__':
         'ETFSafeDogRotation': ETFSafeDogRotation,
         'ETFCoreRotationStoploss': ETFCoreRotationStoploss,
         'ETFVolCorrRotation': ETFVolCorrRotation,
-        'ETFEpoLowCorrCombo': ETFEpoLowCorrCombo,
         'ETFMAMomentumRotation': ETFMAMomentumRotation,
-        'ETFStableDogRotation': ETFStableDogRotation,
-        'ETFTrendCorrFastRotation': ETFTrendCorrFastRotation,
-        'ETFDefensiveMACDRotation': ETFDefensiveMACDRotation,
-        'ETFFixedIncomePlusRebalance': ETFFixedIncomePlusRebalance,
     }
     if strategy_name not in strategy_map:
         raise ValueError(f"Unsupported strategy in config: {strategy_name}. Available: {list(strategy_map.keys())}")
@@ -229,12 +217,7 @@ if __name__ == '__main__':
         'ETFSafeDogRotation': 'etf_safe_dog_rotation',
         'ETFCoreRotationStoploss': 'etf_core_rotation_stoploss',
         'ETFVolCorrRotation': 'etf_volcorr_rotation',
-        'ETFEpoLowCorrCombo': 'etf_epo_lowcorr_combo',
         'ETFMAMomentumRotation': 'etf_ma_momentum_rotation',
-        'ETFStableDogRotation': 'etf_safe_dog_rotation',
-        'ETFTrendCorrFastRotation': 'etf_trend_corr_rotation',
-        'ETFDefensiveMACDRotation': 'etf_defensive_macd_rotation',
-        'ETFFixedIncomePlusRebalance': 'etf_fixed_income_plus_rebalance',
     }
     strategy_key = strategy_config_key_map[strategy_name]
     strategy_cfg = dict(config.get(f'strategies.{strategy_key}', {}) or {})
