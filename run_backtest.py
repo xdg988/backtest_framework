@@ -5,7 +5,12 @@ import pandas as pd
 import backtrader as bt
 import argparse
 
-from data_loader.data_loader import fetch_daily_multiple, fetch_benchmark_series, normalize_ts_code
+from data_loader.data_loader import (
+    fetch_daily_multiple,
+    fetch_benchmark_series,
+    fetch_fund_nav_history_multiple,
+    normalize_ts_code,
+)
 from backtest.rotation_strategy import RotationBacktestStrategy
 from backtest.weight_rotation_strategy import WeightRotationBacktestStrategy
 from backtest.sell_first_broker import SellFirstBackBroker
@@ -109,6 +114,9 @@ def run(start: str,
 
     if hasattr(siggen, 'set_market_data'):
         siggen.set_market_data(data_map)
+    if hasattr(siggen, 'set_nav_history'):
+        nav_history = fetch_fund_nav_history_multiple(pool_codes, fetch_start, end, token)
+        siggen.set_nav_history(nav_history)
 
     execution_strategy_class = (
         WeightRotationBacktestStrategy

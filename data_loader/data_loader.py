@@ -146,6 +146,69 @@ def fetch_daily_multiple(ts_codes: List[str], start_date: str, end_date: str, to
     return data_map
 
 
+def fetch_fund_nav_history_multiple(
+    ts_codes: List[str],
+    start_date: str,
+    end_date: str,
+    token: str = None,
+) -> Dict[str, pd.Series]:
+    """Fetch fund NAV history for multiple symbols via tushare fund_nav.
+
+    Returns
+    -------
+    Dict[str, pd.Series]
+        Mapping code -> NAV series indexed by trade date (Timestamp).
+    """
+    if not ts_codes:
+        return {}
+
+    pro = get_pro_api(token)
+    nav_history: Dict[str, pd.Series] = {}
+
+    for raw_code in ts_codes:
+        code = normalize_ts_code(raw_code)
+        try:
+            df = pro.fund_nav(ts_code=code, start_date=start_date, end_date=end_date)
+        except Exception:
+            continue
+
+        if df is None or len(df) == 0:
+            continue
+
+        date_col = next((c for c in ["ann_date", "nav_date", "trade_date"] if c in df.columns), None)
+        nav_col = next((c for c in ["adj_nav", "unit_nav", "accum_nav"] if c in df.columns), None)
+        if date_col is None or nav_col is None:
+            continue
+
+        tmp = df[[date_col, nav_col]].dropna().copy()
+        if tmp.empty:
+            continue
+
+        tmp[date_col] = tmp[date_col].astype(str)
+        tmp[nav_col] = pd.to_numeric(tmp[nav_col], errors="coerce")
+
+        s = (
+            tmp.sort_values(date_col)
+            .drop_duplicates(subset=[date_col], keep="last")
+            .set_index(date_col)[nav_col]
+            .dropna()
+        )
+        if s.empty:
+            continue
+
+        try:
+            s.index = pd.to_datetime(s.index, format='%Y%m%d', errors='coerce')
+        except Exception:
+            s.index = pd.to_datetime(s.index, errors='coerce')
+        s = s[~s.index.isna()].sort_index()
+        if s.empty:
+            continue
+
+        nav_history[code] = s
+
+    return nav_history
+
+
 def fetch_benchmark_series(start_date: str,
                            end_date: str,
                            token: str = None,

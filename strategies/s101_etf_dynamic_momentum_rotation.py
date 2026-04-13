@@ -32,6 +32,9 @@ class ETFDynamicMomentumRotation:
         max_days: int = 60,
         top_n: int = 1,
         score_upper: float = 6.0,
+        enable_premium_penalty: bool = True,
+        premium_threshold: float = 5.0,
+        premium_penalty: float = 1.0,
     ):
         if not etf_pool:
             raise ValueError("etf_pool cannot be empty for ETFDynamicMomentumRotation")
@@ -42,8 +45,12 @@ class ETFDynamicMomentumRotation:
         self.max_days = int(max_days)
         self.top_n = max(1, int(top_n))
         self.score_upper = float(score_upper)
+        self.enable_premium_penalty = bool(enable_premium_penalty)
+        self.premium_threshold = float(premium_threshold)
+        self.premium_penalty = float(premium_penalty)
         self.warmup_bars = max(self.max_days + 20, self.m_days + 20)
         self.market_data = {}
+        self.nav_history = {}
 
     def set_market_data(self, data_map: dict[str, pd.DataFrame]):
         normalized = {}
@@ -51,6 +58,29 @@ class ETFDynamicMomentumRotation:
             norm_code = self._norm(code)
             normalized[norm_code] = df.copy()
         self.market_data = normalized
+
+    def set_nav_history(self, nav_history: dict[str, pd.Series]):
+        normalized = {}
+        for code, series in (nav_history or {}).items():
+            norm_code = self._norm(code)
+            s = series.copy()
+            if not isinstance(s.index, pd.DatetimeIndex):
+                s.index = pd.to_datetime(s.index, errors='coerce')
+            s = s[~s.index.isna()].sort_index()
+            normalized[norm_code] = s
+        self.nav_history = normalized
+
+    def _premium_rate(self, code: str, prev_close: float, ref_ts: pd.Timestamp) -> float | None:
+        s = self.nav_history.get(code)
+        if s is None or s.empty or not np.isfinite(prev_close) or prev_close <= 0:
+            return None
+        hist = s.loc[s.index <= ref_ts]
+        if hist.empty:
+            return None
+        nav = float(hist.iloc[-1])
+        if not np.isfinite(nav) or nav <= 0:
+            return None
+        return (prev_close - nav) / nav * 100.0
 
     @staticmethod
     def _weighted_regression_score(prices: np.ndarray) -> float:
@@ -171,6 +201,13 @@ class ETFDynamicMomentumRotation:
                 score = self._weighted_regression_score(prices)
                 if self._risk_filter(prices):
                     score = 0.0
+
+                if self.enable_premium_penalty:
+                    prev_ts = hist_close.index[-1]
+                    prev_close = float(hist_close.iloc[-1])
+                    premium_rate = self._premium_rate(code, prev_close, prev_ts)
+                    if premium_rate is not None and premium_rate >= self.premium_threshold:
+                        score -= self.premium_penalty
 
                 if 0.0 < score < self.score_upper:
                     score_rows.append((score, code))

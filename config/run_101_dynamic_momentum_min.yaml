@@ -30,6 +30,9 @@ strategies:
     max_days: 60
     top_n: 1
     score_upper: 6.0
+    enable_premium_penalty: true
+    premium_threshold: 5.0
+    premium_penalty: 1.0
 
 visualization:
   output_dir: "./results"
