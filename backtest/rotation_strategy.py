@@ -30,17 +30,50 @@ class RotationBacktestStrategy(bt.Strategy):
 
     def _build_close_panel(self) -> pd.DataFrame:
         # Build aligned close matrix required by signal generators.
+        price_field = getattr(self.params.signal_generator, 'signal_price_field', 'close')
         panel = {}
         for data in self.datas:
             df = data.p.dataname
-            if isinstance(df, pd.DataFrame) and 'close' in df.columns:
-                panel[data._name] = df['close'].copy()
+            if isinstance(df, pd.DataFrame) and price_field in df.columns:
+                panel[data._name] = df[price_field].copy()
         close_panel = pd.DataFrame(panel).sort_index()
         return close_panel
 
     def _has_pending_order(self) -> bool:
         self.pending_orders = [o for o in self.pending_orders if o.alive()]
         return len(self.pending_orders) > 0
+
+    @staticmethod
+    def _safe_ratio(numerator, denominator) -> float:
+        if denominator is None:
+            return 0.0
+        try:
+            den = float(denominator)
+            num = float(numerator)
+        except (TypeError, ValueError):
+            return 0.0
+        if den <= 0:
+            return 0.0
+        return max(0.0, abs(num / den))
+
+    def _dynamic_switch_buffer(self, target_data, cost_buffer: float) -> float:
+        base = max(0.0, cost_buffer + 0.012)
+
+        day_range = 0.0
+        gap_open = 0.0
+        if len(target_data) > 0:
+            close0 = float(target_data.close[0]) if target_data.close[0] else 0.0
+            high0 = float(target_data.high[0]) if target_data.high[0] else 0.0
+            low0 = float(target_data.low[0]) if target_data.low[0] else 0.0
+            open0 = float(target_data.open[0]) if target_data.open[0] else 0.0
+
+            day_range = self._safe_ratio(high0 - low0, close0)
+            if len(target_data) > 1:
+                prev_close = float(target_data.close[-1]) if target_data.close[-1] else 0.0
+                gap_open = self._safe_ratio(open0 - prev_close, prev_close)
+
+        dynamic_extra = 0.6 * day_range + 0.8 * gap_open
+        return min(0.20, base + dynamic_extra)
 
     def _run_on_bar(self):
         # Wait until all previous orders are settled before issuing new rebalance orders.
@@ -121,7 +154,11 @@ class RotationBacktestStrategy(bt.Strategy):
             available_cash = float(self.broker.getcash())
             if submitted_sell:
                 cash_pool = available_cash + planned_sell_value
-                target_value = cash_pool * target_percent * (1.0 - cost_buffer)
+                # On switch days, execution price/fees may differ from close-based estimate.
+                # Add extra reserve to reduce margin rejections while keeping same-bar rotation behavior.
+                # 基于当日波动与跳空的动态缓冲，降低拒单率同时保持同日轮动特性。
+                switch_buffer = self._dynamic_switch_buffer(target_data, cost_buffer)
+                target_value = cash_pool * target_percent * (1.0 - switch_buffer)
             else:
                 target_value = available_cash * target_percent * (1.0 - cost_buffer)
             if target_value <= 0:

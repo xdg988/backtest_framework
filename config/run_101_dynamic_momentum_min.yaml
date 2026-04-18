@@ -30,6 +30,7 @@ strategies:
     max_days: 60
     top_n: 1
     score_upper: 6.0
+    score_price_field: "open"
     enable_premium_penalty: true
     premium_threshold: 5.0
     premium_penalty: 1.0

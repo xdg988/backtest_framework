@@ -108,6 +108,7 @@ def fetch_daily(ts_code: str, start_date: str, end_date: str, token: str = None)
         raise ValueError(f"No data returned for {code} {start_date}-{end_date}")
 
     out = _standardize_daily_df(df, code)
+    out['close_raw'] = out['close']
     if is_fund_data:
         out = _apply_fund_adjustment(pro, out, code, start_date, end_date)
     return out
@@ -136,6 +137,7 @@ def fetch_daily_multiple(ts_codes: List[str], start_date: str, end_date: str, to
             continue
 
         out = _standardize_daily_df(df, code)
+        out['close_raw'] = out['close']
         if is_fund_data:
             out = _apply_fund_adjustment(pro, out, code, start_date, end_date)
         data_map[code] = out
@@ -175,8 +177,10 @@ def fetch_fund_nav_history_multiple(
         if df is None or len(df) == 0:
             continue
 
-        date_col = next((c for c in ["ann_date", "nav_date", "trade_date"] if c in df.columns), None)
-        nav_col = next((c for c in ["adj_nav", "unit_nav", "accum_nav"] if c in df.columns), None)
+        # Source-style premium logic aligns to unit net value on trade date.
+        # Prefer nav_date/trade_date and unit_nav; ann_date/other nav fields are fallback only.
+        date_col = next((c for c in ["nav_date", "trade_date", "ann_date"] if c in df.columns), None)
+        nav_col = next((c for c in ["unit_nav", "adj_nav", "accum_nav"] if c in df.columns), None)
         if date_col is None or nav_col is None:
             continue
 

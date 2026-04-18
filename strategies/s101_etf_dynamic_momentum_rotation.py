@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+import importlib
 import numpy as np
 import pandas as pd
 
@@ -11,6 +12,7 @@ class ETFDynamicMomentumRotation:
     """Rank ETF pool by weighted trend score with dynamic lookback and rotate to top 1."""
 
     multi_asset = True
+    signal_price_field = 'close'
 
     @staticmethod
     def _norm(code: str) -> str:
@@ -32,6 +34,7 @@ class ETFDynamicMomentumRotation:
         max_days: int = 60,
         top_n: int = 1,
         score_upper: float = 6.0,
+        score_price_field: str = 'open',
         enable_premium_penalty: bool = True,
         premium_threshold: float = 5.0,
         premium_penalty: float = 1.0,
@@ -45,6 +48,7 @@ class ETFDynamicMomentumRotation:
         self.max_days = int(max_days)
         self.top_n = max(1, int(top_n))
         self.score_upper = float(score_upper)
+        self.score_price_field = str(score_price_field or 'open')
         self.enable_premium_penalty = bool(enable_premium_penalty)
         self.premium_threshold = float(premium_threshold)
         self.premium_penalty = float(premium_penalty)
@@ -72,14 +76,20 @@ class ETFDynamicMomentumRotation:
 
     def _premium_rate(self, code: str, prev_close: float, ref_ts: pd.Timestamp) -> float | None:
         s = self.nav_history.get(code)
-        if s is None or s.empty or not np.isfinite(prev_close) or prev_close <= 0:
-            return None
-        hist = s.loc[s.index <= ref_ts]
-        if hist.empty:
-            return None
-        nav = float(hist.iloc[-1])
+        if not np.isfinite(prev_close) or prev_close <= 0:
+            return 0.0
+        # Source-style behavior:
+        # 1) use reference-date NAV only
+        # 2) if NAV is missing/invalid, treat premium as 0 (no penalty)
+        if s is None or s.empty:
+            return 0.0
+        ref_day = pd.Timestamp(ref_ts).normalize()
+        same_day = s.loc[s.index.normalize() == ref_day]
+        if same_day.empty:
+            return 0.0
+        nav = float(same_day.iloc[-1])
         if not np.isfinite(nav) or nav <= 0:
-            return None
+            return 0.0
         return (prev_close - nav) / nav * 100.0
 
     @staticmethod
@@ -118,19 +128,16 @@ class ETFDynamicMomentumRotation:
     def _atr_last(high: pd.Series, low: pd.Series, close: pd.Series, period: int) -> float | None:
         if period <= 0:
             return None
-        h = high.astype(float)
-        l = low.astype(float)
-        c = close.astype(float)
+        h = high.astype(float).to_numpy()
+        l = low.astype(float).to_numpy()
+        c = close.astype(float).to_numpy()
         if len(c) < period + 1:
             return None
-        prev_close = c.shift(1)
-        tr = pd.concat([
-            (h - l).abs(),
-            (h - prev_close).abs(),
-            (l - prev_close).abs(),
-        ], axis=1).max(axis=1)
-        atr = tr.rolling(window=period, min_periods=period).mean()
-        val = atr.iloc[-1]
+        talib_mod = importlib.import_module('talib')
+        atr = talib_mod.ATR(h, l, c, timeperiod=period)
+        if atr is None or len(atr) == 0:
+            return None
+        val = atr[-1]
         if pd.isna(val) or not np.isfinite(val):
             return None
         return float(val)
@@ -158,7 +165,10 @@ class ETFDynamicMomentumRotation:
         if panel.empty:
             return target
 
-        start_idx = max(self.max_days + 5, self.m_days + 5)
+        # Do not block globally by a fixed start index.
+        # Let per-symbol data sufficiency checks decide tradability on each day,
+        # which is closer to source behavior with preloaded platform history.
+        start_idx = 1
         holding = None
 
         for idx in range(start_idx, len(panel)):
@@ -169,11 +179,20 @@ class ETFDynamicMomentumRotation:
 
             for code in panel.columns:
                 curr_price = today.get(code)
+                scoring_price = curr_price
+                if code in self.market_data:
+                    symbol_df = self.market_data[code]
+                    if self.score_price_field in symbol_df.columns:
+                        same_bar = symbol_df.loc[symbol_df.index == ts, self.score_price_field]
+                        if not same_bar.empty and np.isfinite(same_bar.iloc[-1]):
+                            scoring_price = float(same_bar.iloc[-1])
                 if pd.isna(curr_price) or float(curr_price) <= 0:
                     continue
+                if pd.isna(scoring_price) or float(scoring_price) <= 0:
+                    continue
 
-                hist_close = hist[code].dropna()
-                if len(hist_close) < self.min_days + 5:
+                hist_price = hist[code].dropna()
+                if len(hist_price) < self.min_days + 5:
                     continue
 
                 # Match source strict data sufficiency checks using OHLC history.
@@ -193,7 +212,7 @@ class ETFDynamicMomentumRotation:
                     continue
 
                 lookback = self._dynamic_lookback(hist_df)
-                prices = np.append(hist_close.values, float(curr_price))
+                prices = np.append(hist_price.values, float(scoring_price))
                 if len(prices) < max(lookback, 6):
                     continue
                 prices = prices[-lookback:]
@@ -203,8 +222,14 @@ class ETFDynamicMomentumRotation:
                     score = 0.0
 
                 if self.enable_premium_penalty:
-                    prev_ts = hist_close.index[-1]
-                    prev_close = float(hist_close.iloc[-1])
+                    prev_ts = hist_price.index[-1]
+                    prev_close = float(hist_price.iloc[-1])
+                    if code in self.market_data:
+                        symbol_df = self.market_data[code]
+                        close_col = 'close_raw' if 'close_raw' in symbol_df.columns else 'close'
+                        close_ref = symbol_df.loc[symbol_df.index <= prev_ts, close_col]
+                        if not close_ref.empty and np.isfinite(close_ref.iloc[-1]):
+                            prev_close = float(close_ref.iloc[-1])
                     premium_rate = self._premium_rate(code, prev_close, prev_ts)
                     if premium_rate is not None and premium_rate >= self.premium_threshold:
                         score -= self.premium_penalty
