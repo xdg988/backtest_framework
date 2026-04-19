@@ -15,12 +15,10 @@ from backtest.rotation_strategy import RotationBacktestStrategy
 from backtest.weight_rotation_strategy import WeightRotationBacktestStrategy
 from backtest.sell_first_broker import SellFirstBackBroker
 from strategies import (
-    ETFLinearMomentumRotation,
     ETFMomentumEPORotation,
     ETFDandyRotation,
     ETFDynamicMomentumRotation,
     ETFSafeDogRotation,
-    ETFCoreRotationStoploss,
     ETFVolCorrRotation,
     ETFMAMomentumRotation,
 )
@@ -71,7 +69,7 @@ def run(start: str,
     token : str
         tushare token (or will read TUSHARE_TOKEN env).
     strategy_class : class
-        Strategy class from strategies module, e.g. ETFLinearMomentumRotation. Required.
+        Strategy class from strategies module, e.g. ETFDandyRotation. Required.
     signal_kwargs : dict
         Arguments for the strategy class.
     slippage_perc : float
@@ -198,19 +196,17 @@ if __name__ == '__main__':
     benchmark_code = config.get('backtest.benchmark_code', '000300.SH')
     enable_charts = config.get('visualization.enable_charts', True)
     output_dir = config.get('visualization.output_dir', './results')
-    strategy_name = config.get('backtest.default_strategy', 'ETFLinearMomentumRotation')
+    strategy_name = config.get('backtest.default_strategy', 'ETFDandyRotation')
 
     if not token:
         raise ValueError("Tushare token is required. Set data.token in config or export TUSHARE_TOKEN.")
 
     # Map strategy name to class
     strategy_map = {
-        'ETFLinearMomentumRotation': ETFLinearMomentumRotation,
         'ETFMomentumEPORotation': ETFMomentumEPORotation,
         'ETFDandyRotation': ETFDandyRotation,
         'ETFDynamicMomentumRotation': ETFDynamicMomentumRotation,
         'ETFSafeDogRotation': ETFSafeDogRotation,
-        'ETFCoreRotationStoploss': ETFCoreRotationStoploss,
         'ETFVolCorrRotation': ETFVolCorrRotation,
         'ETFMAMomentumRotation': ETFMAMomentumRotation,
     }
@@ -221,12 +217,10 @@ if __name__ == '__main__':
 
     # Load strategy parameters from config
     strategy_config_key_map = {
-        'ETFLinearMomentumRotation': 'etf_linear_rotation',
         'ETFMomentumEPORotation': 'etf_momentum_epo_rotation',
         'ETFDandyRotation': 'etf_dandy_rotation',
         'ETFDynamicMomentumRotation': 'etf_dynamic_momentum_rotation',
         'ETFSafeDogRotation': 'etf_safe_dog_rotation',
-        'ETFCoreRotationStoploss': 'etf_core_rotation_stoploss',
         'ETFVolCorrRotation': 'etf_volcorr_rotation',
         'ETFMAMomentumRotation': 'etf_ma_momentum_rotation',
     }

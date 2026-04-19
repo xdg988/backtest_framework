@@ -80,7 +80,7 @@ python run_backtest.py --help
 
 ```python
 from run_backtest import run
-from strategies import ETFLinearMomentumRotation
+from strategies import ETFSafeDogRotation
 from backtest.performance import compute_performance
 
 records, trades = run(
@@ -88,7 +88,7 @@ records, trades = run(
     end='20221231',
     cash=100000,
     token='your_tushare_token',
-    strategy_class=ETFLinearMomentumRotation,
+    strategy_class=ETFSafeDogRotation,
     signal_kwargs={
         'etf_pool': ['518880.XSHG', '513100.XSHG', '159915.XSHE', '510180.XSHG'],
         'm_days': 25,
