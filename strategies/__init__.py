@@ -8,6 +8,8 @@ from .s101_etf_dynamic_momentum_rotation import ETFDynamicMomentumRotation
 from .s14_etf_safe_dog_rotation import ETFSafeDogRotation
 from .s26_etf_volcorr_rotation import ETFVolCorrRotation
 from .s58_etf_ma_momentum_rotation import ETFMAMomentumRotation
+from .s110_etf_multi_factor_rotation import ETFMultiFactorRotation
+from .s111_etf_multi_factor_single_rotation import ETFMultiFactorSingleRotation
 
 __all__ = [
     'ETFMomentumEPORotation',
@@ -16,4 +18,6 @@ __all__ = [
     'ETFSafeDogRotation',
     'ETFVolCorrRotation',
     'ETFMAMomentumRotation',
+    'ETFMultiFactorRotation',
+    'ETFMultiFactorSingleRotation',
 ]

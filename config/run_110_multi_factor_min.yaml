@@ -1,0 +1,57 @@
+data:
+  token: "xx"
+
+backtest:
+  default_strategy: "ETFMultiFactorRotation"
+  default_cash: 100000
+  default_start: "20200101"
+  default_end: "20251020"
+  benchmark_code: "000300.SH"
+
+strategies:
+  etf_multi_factor_rotation:
+    commission: 0.0005
+    slippage_perc: 0.001
+    target_percent: 0.98
+    cost_buffer: 0.003
+    etf_pool:
+      - "510300.XSHG"
+      - "159915.XSHE"
+      - "512100.XSHG"
+      - "513100.XSHG"
+      - "159920.XSHE"
+    top_n: 3
+    rebalance: "monthly"  # daily / weekly / monthly
+    min_score: null
+    weight_method: "equal"  # equal / score
+    momentum_windows: [5, 20, 60]
+    volatility_windows: [20, 60]
+    bias_windows: [20, 60]
+    liquidity_window: 20
+    factor_weights: null  # 为空时使用 factor_directions 自动归一化
+    factor_directions:
+      momentum_5: 1
+      momentum_20: 1
+      momentum_60: 1
+      volatility_20: -1
+      volatility_60: -1
+      bias_20: -1
+      bias_60: -1
+      volume_ratio: 1
+      liquidity: 1
+    factor_whitelist:
+      - "momentum_5"
+      - "momentum_20"
+      - "momentum_60"
+      - "volatility_20"
+      - "volatility_60"
+      - "bias_20"
+      - "bias_60"
+      - "volume_ratio"
+      - "liquidity"
+    fill_value: 0.0
+    drop_missing_factors: false
+
+visualization:
+  output_dir: "./results"
+  enable_charts: true
