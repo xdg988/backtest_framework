@@ -4,12 +4,14 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 
+import numpy as np
 import pandas as pd
 
 
 DEFAULT_MOMENTUM_WINDOWS = (5, 20, 60)
 DEFAULT_VOLATILITY_WINDOWS = (20, 60)
-DEFAULT_BIAS_WINDOWS = (20, 60)
+DEFAULT_MOMENTUM_REGRESSION_WINDOWS = (25,)
+DEFAULT_TURNOVER_WINDOW = 20
 
 
 def _normalize_windows(windows: Iterable[int] | None, default: tuple[int, ...]) -> tuple[int, ...]:
@@ -33,11 +35,11 @@ def _stack_panel(panel: pd.DataFrame, value_name: str) -> pd.DataFrame:
 def build_etf_factor_data(
     close_panel: pd.DataFrame,
     volume_panel: pd.DataFrame | None = None,
-    amount_panel: pd.DataFrame | None = None,
+    float_share_panel: pd.DataFrame | None = None,
     momentum_windows: Iterable[int] | None = None,
     volatility_windows: Iterable[int] | None = None,
-    bias_windows: Iterable[int] | None = None,
-    liquidity_window: int = 20,
+    momentum_regression_windows: Iterable[int] | None = None,
+    turnover_window: int = DEFAULT_TURNOVER_WINDOW,
 ) -> pd.DataFrame:
     """Build a long-form ETF factor table from wide market panels.
 
@@ -47,12 +49,12 @@ def build_etf_factor_data(
         Wide close-price panel. Index is trading date and columns are ETF codes.
     volume_panel
         Optional wide volume panel aligned with ``close_panel``.
-    amount_panel
-        Optional wide amount/turnover panel aligned with ``close_panel``.
-    momentum_windows, volatility_windows, bias_windows
+    float_share_panel
+        Optional wide float-share panel aligned with ``close_panel``.
+    momentum_windows, volatility_windows, momentum_regression_windows
         Rolling windows for factor generation.
-    liquidity_window
-        Rolling window used by liquidity proxies.
+    turnover_window
+        换手率因子窗口（交易日），默认20约等于1个月。
 
     说明
     ----
@@ -64,10 +66,13 @@ def build_etf_factor_data(
 
     momentum_windows = _normalize_windows(momentum_windows, DEFAULT_MOMENTUM_WINDOWS)
     volatility_windows = _normalize_windows(volatility_windows, DEFAULT_VOLATILITY_WINDOWS)
-    bias_windows = _normalize_windows(bias_windows, DEFAULT_BIAS_WINDOWS)
-    liquidity_window = int(liquidity_window)
-    if liquidity_window <= 0:
-        raise ValueError("liquidity_window must be positive")
+    momentum_regression_windows = _normalize_windows(
+        momentum_regression_windows,
+        DEFAULT_MOMENTUM_REGRESSION_WINDOWS,
+    )
+    turnover_window = int(turnover_window)
+    if turnover_window <= 0:
+        raise ValueError("turnover_window must be positive")
 
     close_panel = close_panel.sort_index().copy()
     factor_frames: list[pd.DataFrame] = []
@@ -90,29 +95,29 @@ def build_etf_factor_data(
         for window in volatility_windows:
             df[f"volatility_{window}"] = returns.rolling(window).std()
 
-        # 均线乖离率：反映价格偏离趋势均线的程度。
-        for window in bias_windows:
-            ma = df["close"].rolling(window).mean()
-            df[f"ma_{window}"] = ma
-            df[f"bias_{window}"] = (df["close"] - ma) / ma
+        # 动量回归因子：参考 s14 的 momentum_score（年化收益 * 加权R²）。
+        for window in momentum_regression_windows:
+            df[f"momentum_regression_{window}"] = (
+                df["close"]
+                .rolling(window)
+                .apply(_momentum_regression_score, raw=True)
+            )
 
-        # 流动性代理1：量比（当前成交量 / 窗口均量）。
+        # 换手率因子：参考 multi-factor-stock-selection，turnover_rate = vol / float_share。
         if volume_panel is not None and code in volume_panel.columns:
             volume_series = volume_panel[code].reindex(price_series.index)
             df["volume"] = volume_series.values
-            df["volume_ratio"] = df["volume"] / df["volume"].rolling(liquidity_window).mean()
         else:
             df["volume"] = pd.NA
-            df["volume_ratio"] = pd.NA
 
-        # 流动性代理2：成交额移动均值。
-        if amount_panel is not None and code in amount_panel.columns:
-            amount_series = amount_panel[code].reindex(price_series.index)
-            df["amount"] = amount_series.values
-            df["liquidity"] = df["amount"].rolling(liquidity_window).mean()
+        if float_share_panel is not None and code in float_share_panel.columns:
+            float_share_series = float_share_panel[code].reindex(price_series.index)
+            df["float_share"] = float_share_series.values
         else:
-            df["amount"] = pd.NA
-            df["liquidity"] = pd.NA
+            df["float_share"] = pd.NA
+
+        df["turnover_rate"] = pd.to_numeric(df["volume"], errors="coerce") / pd.to_numeric(df["float_share"], errors="coerce")
+        df[f"turnover_rate_{turnover_window}"] = df["turnover_rate"].rolling(turnover_window).mean()
 
         factor_frames.append(df)
 
@@ -124,6 +129,32 @@ def build_etf_factor_data(
     factor_data["trade_date"] = pd.to_datetime(factor_data["trade_date"])
     factor_data = factor_data.sort_values(["trade_date", "ts_code"]).reset_index(drop=True)
     return factor_data
+
+
+def _momentum_regression_score(window_values: np.ndarray) -> float:
+    values = np.asarray(window_values, dtype=float)
+    if len(values) < 2 or np.any(~np.isfinite(values)) or np.any(values <= 0):
+        return np.nan
+
+    y = np.log(values)
+    n = len(y)
+    x = np.arange(n)
+    weights = np.linspace(1.0, 2.0, n)
+
+    try:
+        slope, intercept = np.polyfit(x, y, 1, w=weights)
+    except Exception:
+        return np.nan
+
+    annualized_returns = np.exp(slope * 250) - 1
+    fitted = slope * x + intercept
+    residuals = y - fitted
+    weighted_residuals = weights * residuals ** 2
+    denominator = np.sum(weights * (y - np.mean(y)) ** 2)
+    if denominator == 0:
+        return np.nan
+    r_squared = 1 - (np.sum(weighted_residuals) / denominator)
+    return float(annualized_returns * r_squared)
 
 
 __all__ = ["build_etf_factor_data"]

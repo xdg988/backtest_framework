@@ -24,31 +24,21 @@ strategies:
     rebalance: "monthly"
     min_score: null
     weight_method: "equal"
-    momentum_windows: [5, 20, 60]
-    volatility_windows: [20, 60]
-    bias_windows: [20, 60]
-    liquidity_window: 20
+    momentum_windows: [60]
+    volatility_windows: [60]
+    momentum_regression_windows: [25]
+    turnover_window: 20
     factor_weights: null
     factor_directions:
-      momentum_5: 1
-      momentum_20: 1
       momentum_60: 1
-      volatility_20: -1
       volatility_60: -1
-      bias_20: -1
-      bias_60: -1
-      volume_ratio: 1
-      liquidity: 1
+      turnover_rate_20: 1
+      momentum_regression_25: 1
     factor_whitelist:
-      - "momentum_5"
-      - "momentum_20"
       - "momentum_60"
-      - "volatility_20"
       - "volatility_60"
-      - "bias_20"
-      - "bias_60"
-      - "volume_ratio"
-      - "liquidity"
+      - "turnover_rate_20"
+      - "momentum_regression_25"
     fill_value: 0.0
     drop_missing_factors: false
 

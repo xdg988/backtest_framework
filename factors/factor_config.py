@@ -8,18 +8,13 @@ import pandas as pd
 
 # 因子方向：1 表示值越大越好，-1 表示值越小越好。
 DEFAULT_FACTOR_DIRECTIONS: dict[str, int] = {
-    "momentum_5": 1,
-    "momentum_20": 1,
     "momentum_60": 1,
-    "volatility_20": -1,
     "volatility_60": -1,
-    "bias_20": -1,
-    "bias_60": -1,
-    "volume_ratio": 1,
-    "liquidity": 1,
+    "turnover_rate_20": 1,
+    "momentum_regression_25": 1,
 }
 
-# 第一版 ETF 多因子白名单（技术因子 + 流动性代理因子）
+# 第一版 ETF 多因子白名单（仅：动量 + 波动率 + 换手率 + 动量回归）
 DEFAULT_FACTOR_WHITELIST: tuple[str, ...] = tuple(DEFAULT_FACTOR_DIRECTIONS.keys())
 
 
