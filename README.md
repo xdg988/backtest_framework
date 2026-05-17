@@ -13,15 +13,24 @@ backtest_framework/
 ├── config/                       # 配置模块
 │   ├── __init__.py
 │   ├── config.py                 # 配置读取
-│   └── default.yaml              # 默认配置
+│   ├── default.yaml              # 默认配置
+│   ├── run_14_safe_dog_min.yaml
+│   ├── run_17_momentum_epo_min.yaml
+│   ├── run_26_volcorr_min.yaml
+│   ├── run_58_ma_momo_min.yaml
+│   ├── run_81_dandy_min.yaml
+│   ├── run_101_dynamic_momentum_min.yaml
+│   ├── run_110_multi_factor_min.yaml
+│   └── run_111_multi_factor_single_min.yaml
 ├── data_loader/                  # 数据加载模块
 │   ├── __init__.py
 │   ├── data_loader.py            # tushare 数据加载
-│   └── load_csv.py               # 本地 CSV 导入示例
+│   └── __pycache__/
 ├── backtest/                     # 回测核心模块
 │   ├── __init__.py
 │   ├── rotation_strategy.py      # Backtrader 多标的轮动执行策略
-│   ├── position_manager.py       # 仓位管理 + 风控
+│   ├── weight_rotation_strategy.py # 权重型组合执行策略
+│   ├── sell_first_broker.py      # 先卖后买 broker
 │   └── performance.py            # 绩效指标计算
 ├── reporting/                    # 可视化与报告
 │   ├── __init__.py
@@ -29,8 +38,14 @@ backtest_framework/
 │   └── report_generator.py
 ├── strategies/                   # 信号策略
 │   ├── __init__.py
-│   ├── etf_linear_momentum_rotation.py
-│   └── etf_trend_corr_rotation.py
+│   ├── s14_etf_safe_dog_rotation.py
+│   ├── s17_etf_momentum_epo_rotation.py
+│   ├── s26_etf_volcorr_rotation.py
+│   ├── s58_etf_ma_momentum_rotation.py
+│   ├── s81_etf_dandy_rotation.py
+│   ├── s101_etf_dynamic_momentum_rotation.py
+│   ├── s110_etf_multi_factor_rotation.py
+│   └── s111_etf_multi_factor_single_rotation.py
 └── results/                      # 结果输出目录
 ```
 
@@ -70,11 +85,33 @@ python run_backtest.py --help
 
 默认配置文件：`config/default.yaml`
 
+当前已内置的最小化回测配置包括：
+
+- `config/run_14_safe_dog_min.yaml`
+- `config/run_17_momentum_epo_min.yaml`
+- `config/run_26_volcorr_min.yaml`
+- `config/run_58_ma_momo_min.yaml`
+- `config/run_81_dandy_min.yaml`
+- `config/run_101_dynamic_momentum_min.yaml`
+- `config/run_110_multi_factor_min.yaml`
+- `config/run_111_multi_factor_single_min.yaml`
+
 - `data.token`：tushare token（统一从配置文件读取）
 - `backtest.default_strategy`：默认策略名称
 - `backtest.default_start/default_end/default_cash`：回测基础参数
 - `strategies`：策略参数
 - `visualization`：图表输出路径及开关
+
+当前 `run_backtest.py` 已注册的策略类包括：
+
+- `ETFSafeDogRotation`
+- `ETFMomentumEPORotation`
+- `ETFVolCorrRotation`
+- `ETFMAMomentumRotation`
+- `ETFDandyRotation`
+- `ETFDynamicMomentumRotation`
+- `ETFMultiFactorRotation`
+- `ETFMultiFactorSingleRotation`
 
 ## Python 调用示例
 
@@ -111,6 +148,13 @@ print(perf)
 - `results/drawdown.png`：回撤图
 - `results/returns_distribution.png`：收益分布
 - `results/signals_price.png`：价格与信号图
+
+批量运行多个策略时，也可以按策略前缀输出扁平文件，例如：
+
+- `results/14_safe_dog_backtest.log`
+- `results/14_safe_dog_backtest.html`
+- `results/101_dynamic_momentum_backtest.log`
+- `results/101_dynamic_momentum_backtest.html`
 
 ## 扩展开发
 
