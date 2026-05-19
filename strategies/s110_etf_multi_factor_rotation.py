@@ -40,6 +40,7 @@ class ETFMultiFactorRotation:
         factor_weights: Mapping[str, float] | None = None,
         factor_directions: Mapping[str, int] | None = None,
         factor_whitelist: Sequence[str] | None = None,
+        financial_factors: Mapping[str, object] | None = None,
         fill_value: float = 0.0,
         drop_missing_factors: bool = False,
     ):
@@ -60,10 +61,12 @@ class ETFMultiFactorRotation:
         self.factor_weights = dict(factor_weights) if factor_weights else None
         self.factor_directions = dict(factor_directions) if factor_directions else None
         self.factor_whitelist = tuple(factor_whitelist) if factor_whitelist else None
+        self.financial_factors = dict(financial_factors) if financial_factors else {}
         self.fill_value = float(fill_value)
         self.drop_missing_factors = bool(drop_missing_factors)
 
         self.market_data: dict[str, pd.DataFrame] = {}
+        self.financial_factor_data = pd.DataFrame()
 
         max_window = max(
             max(self.momentum_windows) if self.momentum_windows else 1,
@@ -88,6 +91,16 @@ class ETFMultiFactorRotation:
             item = item[~item.index.isna()].sort_index()
             normalized[norm_code] = item
         self.market_data = normalized
+
+    def set_financial_factor_data(self, financial_factor_data: pd.DataFrame):
+        """Inject pre-aggregated ETF financial factor data (trade_date, ts_code, factor columns)."""
+        if financial_factor_data is None:
+            self.financial_factor_data = pd.DataFrame()
+            return
+        item = financial_factor_data.copy()
+        if "trade_date" in item.columns:
+            item["trade_date"] = pd.to_datetime(item["trade_date"], errors="coerce")
+        self.financial_factor_data = item
 
     @staticmethod
     def _rebalance_mask(index: pd.DatetimeIndex, rebalance: str) -> pd.Series:
@@ -152,6 +165,7 @@ class ETFMultiFactorRotation:
             volatility_windows=self.volatility_windows,
             momentum_regression_windows=self.momentum_regression_windows,
             turnover_window=self.turnover_window,
+            financial_factor_data=self.financial_factor_data,
         )
         if factor_data.empty:
             self.last_factor_data = factor_data

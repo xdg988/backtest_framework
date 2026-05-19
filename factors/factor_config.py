@@ -12,6 +12,9 @@ DEFAULT_FACTOR_DIRECTIONS: dict[str, int] = {
     "volatility_60": -1,
     "turnover_rate_20": 1,
     "momentum_regression_25": 1,
+    "roe_qoq_growth": 1,
+    "dtprofit_qoq_growth_rate": 1,
+    "cur_asset_ratio_qoq_growth": 1,
 }
 
 # 第一版 ETF 多因子白名单（仅：动量 + 波动率 + 换手率 + 动量回归）

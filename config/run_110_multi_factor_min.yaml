@@ -1,5 +1,11 @@
 data:
   token: "xx"
+  etf_to_index_map:
+    "510300.XSHG": "000300.SH"
+    "159915.XSHE": "399006.SZ"
+    "512100.XSHG": "000905.SH"
+    "513100.XSHG": "SPX"
+    "159920.XSHE": "399975.SZ"
 
 backtest:
   default_strategy: "ETFMultiFactorRotation"
@@ -39,6 +45,15 @@ strategies:
       - "volatility_60"
       - "turnover_rate_20"
       - "momentum_regression_25"
+    financial_factors:
+      enabled: false
+      coverage_threshold: 0.6
+      date_priority: ["ann_date", "f_ann_date", "end_date"]
+      use_income_only: false
+      fields:
+        roe_qoq_growth: true
+        dtprofit_qoq_growth_rate: true
+        cur_asset_ratio_qoq_growth: true
     fill_value: 0.0
     drop_missing_factors: false
 
