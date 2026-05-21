@@ -39,7 +39,6 @@ def build_etf_factor_data(
     volatility_windows: Iterable[int] | None = None,
     momentum_regression_windows: Iterable[int] | None = None,
     turnover_window: int = DEFAULT_TURNOVER_WINDOW,
-    financial_factor_data: pd.DataFrame | None = None,
 ) -> pd.DataFrame:
     """Build ETF long-form factor table from wide market panels.
 
@@ -55,8 +54,7 @@ def build_etf_factor_data(
         各类因子窗口。
     turnover_window
         换手率平滑窗口。
-    financial_factor_data
-        来自 financial_factors 的 ETF 财务因子长表（可选），会按 trade_date/ts_code 合并。
+    说明：该函数只负责行情衍生因子，不负责跨来源因子合并。
     """
     if close_panel is None or close_panel.empty:
         return pd.DataFrame(columns=["trade_date", "ts_code", "close"])
@@ -124,23 +122,6 @@ def build_etf_factor_data(
     factor_data = pd.concat(factor_frames, ignore_index=True)
     factor_data["trade_date"] = pd.to_datetime(factor_data["trade_date"])
     factor_data = factor_data.sort_values(["trade_date", "ts_code"]).reset_index(drop=True)
-
-    # 合并来自 financial_factors 的 ETF 财务因子（如已提供）。
-    if financial_factor_data is not None and not financial_factor_data.empty:
-        fin = financial_factor_data.copy()
-        required_cols = {"trade_date", "ts_code"}
-        if not required_cols.issubset(fin.columns):
-            raise ValueError("financial_factor_data must contain trade_date and ts_code columns")
-        fin["trade_date"] = pd.to_datetime(fin["trade_date"], errors="coerce")
-        fin = fin.dropna(subset=["trade_date", "ts_code"]).copy()
-        fin["ts_code"] = fin["ts_code"].astype(str)
-
-        factor_data = factor_data.merge(
-            fin,
-            on=["trade_date", "ts_code"],
-            how="left",
-            suffixes=("", "_financial"),
-        )
 
     return factor_data
 

@@ -114,6 +114,10 @@ def run(start: str,
 
     if hasattr(siggen, 'set_market_data'):
         siggen.set_market_data(data_map)
+
+    if hasattr(siggen, 'set_runtime_context'):
+        siggen.set_runtime_context(token=token, start=fetch_start, end=end)
+
     if hasattr(siggen, 'set_nav_history'):
         nav_history = fetch_fund_nav_history_multiple(pool_codes, fetch_start, end, token)
         siggen.set_nav_history(nav_history)
@@ -232,6 +236,13 @@ if __name__ == '__main__':
     }
     strategy_key = strategy_config_key_map[strategy_name]
     strategy_cfg = dict(config.get(f'strategies.{strategy_key}', {}) or {})
+
+    financial_cfg = dict(strategy_cfg.get('financial_factors') or {})
+    data_etf_map = dict(config.get('data.etf_to_index_map', {}) or {})
+    if data_etf_map and not financial_cfg.get('etf_to_index_map'):
+        financial_cfg['etf_to_index_map'] = data_etf_map
+        strategy_cfg['financial_factors'] = financial_cfg
+
     strategy_slippage = strategy_cfg.pop('slippage_perc', slippage_perc)
     strategy_commission = strategy_cfg.pop('commission', commission)
     strategy_target_percent = strategy_cfg.pop('target_percent', target_percent)

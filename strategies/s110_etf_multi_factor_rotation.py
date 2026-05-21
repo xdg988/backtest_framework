@@ -6,7 +6,12 @@ from collections.abc import Mapping, Sequence
 
 import pandas as pd
 
-from factors import build_etf_factor_data, score_etf_cross_section, select_top_etfs
+from factors import (
+    build_unified_etf_factor_data,
+    prepare_financial_factor_data,
+    score_etf_cross_section,
+    select_top_etfs,
+)
 
 
 class ETFMultiFactorRotation:
@@ -67,6 +72,10 @@ class ETFMultiFactorRotation:
 
         self.market_data: dict[str, pd.DataFrame] = {}
         self.financial_factor_data = pd.DataFrame()
+        self._financial_factor_prepared = False
+        self._runtime_token: str | None = None
+        self._runtime_start: str | None = None
+        self._runtime_end: str | None = None
 
         max_window = max(
             max(self.momentum_windows) if self.momentum_windows else 1,
@@ -101,6 +110,36 @@ class ETFMultiFactorRotation:
         if "trade_date" in item.columns:
             item["trade_date"] = pd.to_datetime(item["trade_date"], errors="coerce")
         self.financial_factor_data = item
+        self._financial_factor_prepared = True
+
+    def set_runtime_context(self, token: str | None, start: str | None, end: str | None):
+        """Inject runtime context for optional data pipelines.
+
+        This keeps run_backtest generic: strategy decides whether to use the context.
+        """
+        self._runtime_token = token
+        self._runtime_start = start
+        self._runtime_end = end
+
+    def _ensure_financial_factor_data(self, trading_index: pd.DatetimeIndex):
+        """Prepare financial factors on first use and cache in-memory."""
+        if self._financial_factor_prepared:
+            return
+
+        self._financial_factor_prepared = True
+        try:
+            built = prepare_financial_factor_data(
+                financial_factors=self.financial_factors,
+                token=self._runtime_token,
+                start_date=self._runtime_start,
+                end_date=self._runtime_end,
+                trading_index=trading_index,
+                etf_pool=self.etf_pool,
+            )
+            self.set_financial_factor_data(built)
+        except Exception as e:
+            print(f"financial factor pipeline failed, fallback to market-only: {e}")
+            self.financial_factor_data = pd.DataFrame()
 
     @staticmethod
     def _rebalance_mask(index: pd.DatetimeIndex, rebalance: str) -> pd.Series:
@@ -155,9 +194,11 @@ class ETFMultiFactorRotation:
         if panel.empty:
             return weights_df
 
+        self._ensure_financial_factor_data(panel.index)
+
         volume_panel, float_share_panel = self._build_aux_panels(panel)
 
-        factor_data = build_etf_factor_data(
+        factor_data = build_unified_etf_factor_data(
             close_panel=panel,
             volume_panel=volume_panel,
             float_share_panel=float_share_panel,

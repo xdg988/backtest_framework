@@ -8,10 +8,10 @@ from .s110_etf_multi_factor_rotation import ETFMultiFactorRotation
 
 
 class ETFMultiFactorSingleRotation(ETFMultiFactorRotation):
-    """Single-ETF wrapper based on the same multi-factor scoring pipeline.
+    """Single-ETF wrapper based on the same unified factor entry pipeline.
 
     设计目标：
-    - 复用 `ETFMultiFactorRotation` 的因子与评分逻辑；
+    - 复用 `ETFMultiFactorRotation` 的统一入口因子与评分逻辑；
     - 输出 `generate_targets`，供 RotationBacktestStrategy 使用；
     - 与权重版在同一天的第一名标的保持一致。
     """
